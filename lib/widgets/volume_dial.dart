@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 
 class VolumeDial extends StatelessWidget {
@@ -29,9 +28,7 @@ class VolumeDial extends StatelessWidget {
       child: SizedBox(
         width: size,
         height: size,
-        child: CustomPaint(
-          painter: _DialPainter(value: value),
-        ),
+        child: CustomPaint(painter: _DialPainter(value: value)),
       ),
     );
   }
@@ -42,7 +39,7 @@ class _DialPainter extends CustomPainter {
   _DialPainter({required this.value});
 
   static const double startAngle = 0.75 * math.pi; // 135°
-  static const double sweepMax = 1.5 * math.pi;    // 270°
+  static const double sweepMax = 1.5 * math.pi; // 270°
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -99,7 +96,8 @@ class _DialPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: '$pct',
-        style: GoogleFonts.sairaStencilOne(
+        style: const TextStyle(
+          fontFamily: 'SairaStencilOne',
           color: Colors.white,
           fontSize: 18,
         ),

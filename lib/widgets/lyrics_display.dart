@@ -39,10 +39,7 @@ class LyricsDisplay extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             song!.title,
-            style: const TextStyle(
-              color: AppColors.accentPurple,
-              fontSize: 18,
-            ),
+            style: const TextStyle(color: AppColors.accentPurple, fontSize: 18),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),

@@ -1,22 +1,22 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import '../models/lrc_line.dart';
 
 final _tagPattern = RegExp(r'<[^>]+>');
 final _timePattern = RegExp(r'^\[(\d+):(\d+\.\d+)\](.*)');
 
-Future<List<LrcLine>> parseLrcFile(String path) async {
-  final file = File(path);
-  if (!file.existsSync()) return [];
-
+/// Parses raw .lrc file bytes (UTF-8, tolerant of malformed sequences).
+List<LrcLine> parseLrcBytes(Uint8List? bytes) {
+  if (bytes == null || bytes.isEmpty) return [];
   try {
-    final lines = file.readAsLinesSync();
-    return _parseLines(lines);
+    final text = utf8.decode(bytes, allowMalformed: true);
+    return parseLrcLines(const LineSplitter().convert(text));
   } catch (_) {
     return [];
   }
 }
 
-List<LrcLine> _parseLines(List<String> lines) {
+List<LrcLine> parseLrcLines(List<String> lines) {
   final result = <LrcLine>[];
   double? currentTime;
   final buffer = <String>[];

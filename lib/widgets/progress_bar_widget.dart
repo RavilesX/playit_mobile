@@ -7,7 +7,7 @@ String _fmt(Duration d) {
   return '$m:$s';
 }
 
-class ProgressBarWidget extends StatelessWidget {
+class ProgressBarWidget extends StatefulWidget {
   final Duration position;
   final Duration duration;
   final bool enabled;
@@ -22,14 +22,29 @@ class ProgressBarWidget extends StatelessWidget {
   });
 
   @override
+  State<ProgressBarWidget> createState() => _ProgressBarWidgetState();
+}
+
+class _ProgressBarWidgetState extends State<ProgressBarWidget> {
+  /// While dragging, the slider tracks this local value; the engine seek
+  /// (4 voices) fires once on release instead of on every drag frame.
+  double? _dragValue;
+
+  @override
   Widget build(BuildContext context) {
-    final total = duration.inMilliseconds.toDouble();
-    final current = position.inMilliseconds.toDouble().clamp(0.0, total > 0 ? total : 1.0);
+    final total = widget.duration.inMilliseconds.toDouble();
+    final current =
+        _dragValue ??
+        widget.position.inMilliseconds.toDouble().clamp(
+          0.0,
+          total > 0 ? total : 1.0,
+        );
+    final shown = Duration(milliseconds: current.round());
 
     return Column(
       children: [
         Text(
-          '${_fmt(position)} / ${_fmt(duration)}',
+          '${_fmt(shown)} / ${_fmt(widget.duration)}',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -51,8 +66,14 @@ class ProgressBarWidget extends StatelessWidget {
             value: current,
             min: 0,
             max: total > 0 ? total : 1,
-            onChanged: enabled
-                ? (v) => onSeek(Duration(milliseconds: v.round()))
+            onChanged: widget.enabled
+                ? (v) => setState(() => _dragValue = v)
+                : null,
+            onChangeEnd: widget.enabled
+                ? (v) {
+                    setState(() => _dragValue = null);
+                    widget.onSeek(Duration(milliseconds: v.round()));
+                  }
                 : null,
           ),
         ),

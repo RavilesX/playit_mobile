@@ -1,5 +1,5 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/player_provider.dart';
@@ -17,6 +17,9 @@ class PlayerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+
     return Stack(
       children: [
         // Vertically fixed full-screen background
@@ -25,14 +28,15 @@ class PlayerScreen extends StatelessWidget {
             'assets/images/background.png',
             fit: BoxFit.cover,
             alignment: Alignment.center,
+            cacheHeight: (screen.height * dpr).round(),
           ),
         ),
         Scaffold(
           backgroundColor: Colors.transparent,
-          drawer: const Drawer(
+          drawer: Drawer(
             backgroundColor: Colors.transparent,
-            width: 300,
-            child: PlaylistDrawer(),
+            width: math.min(300, screen.width * 0.85),
+            child: const PlaylistDrawer(),
           ),
           body: LayoutBuilder(
             builder: (ctx, constraints) {
@@ -63,10 +67,7 @@ class _PortraitLayout extends StatelessWidget {
       child: Column(
         children: [
           _AppBar(),
-          Expanded(
-            flex: 5,
-            child: _TabSection(),
-          ),
+          Expanded(flex: 5, child: _TabSection()),
           _StemControlsRow(),
           const SizedBox(height: 4),
           Padding(
@@ -97,10 +98,7 @@ class _WideLayout extends StatelessWidget {
       child: Row(
         children: [
           if (isTablet) ...[
-            SizedBox(
-              width: 280,
-              child: const PlaylistDrawer(),
-            ),
+            SizedBox(width: 280, child: const PlaylistDrawer()),
             Container(width: 1, color: AppColors.border),
           ],
           Expanded(
@@ -117,7 +115,9 @@ class _WideLayout extends StatelessWidget {
                           children: [
                             Expanded(child: _StemControlsRow()),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               child: _ProgressSection(),
                             ),
                             Padding(
@@ -161,15 +161,17 @@ class _AppBar extends StatelessWidget {
               onPressed: () => Scaffold.of(ctx).openDrawer(),
             ),
           ),
-          Image.asset('assets/icons/main_icon.png', height: 30, width: 30),
+          Image.asset(
+            'assets/icons/main_icon.png',
+            height: 30,
+            width: 30,
+            cacheWidth: (30 * MediaQuery.devicePixelRatioOf(context)).round(),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               provider.currentSong?.displayName ?? 'Play It',
-              style: GoogleFonts.sairaStencilOne(
-                color: Colors.white,
-                fontSize: 15,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 15),
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
@@ -210,7 +212,7 @@ class _TabSection extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: CoverView(song: provider.currentSong),
+                  child: CoverView(coverBytes: provider.coverBytes),
                 ),
                 LyricsDisplay(
                   song: provider.currentSong,
@@ -264,11 +266,17 @@ class _ProgressSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PlayerProvider>();
-    return ProgressBarWidget(
-      position: provider.position,
-      duration: provider.duration,
-      enabled: provider.status != PlaybackStatus.stopped,
-      onSeek: provider.seekTo,
+    // Only this subtree rebuilds at 10 Hz with the playback position.
+    return ValueListenableBuilder<Duration>(
+      valueListenable: provider.positionNotifier,
+      builder: (context, position, _) {
+        return ProgressBarWidget(
+          position: position,
+          duration: provider.duration,
+          enabled: provider.status != PlaybackStatus.stopped,
+          onSeek: provider.seekTo,
+        );
+      },
     );
   }
 }
@@ -277,27 +285,31 @@ class _TransportRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PlayerProvider>();
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        TransportControls(
-          status: provider.status,
-          hasPlaylist: provider.playlist.isNotEmpty,
-          hasCurrentSong: provider.currentIndex >= 0,
-          repeatMode: provider.repeatMode,
-          onPrev: provider.playPrevious,
-          onPlayPause: provider.togglePlayPause,
-          onNext: provider.playNext,
-          onStop: provider.stop,
-          onRepeatToggle: provider.toggleRepeat,
-        ),
-        const SizedBox(width: 16),
-        VolumeDial(
-          value: provider.engine.masterVolume,
-          onChanged: provider.setMasterVolume,
-          size: 80,
-        ),
-      ],
+    // Scales the whole row down on narrow screens instead of overflowing
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TransportControls(
+            status: provider.status,
+            hasPlaylist: provider.playlist.isNotEmpty,
+            hasCurrentSong: provider.currentIndex >= 0,
+            repeatMode: provider.repeatMode,
+            onPrev: provider.playPrevious,
+            onPlayPause: provider.togglePlayPause,
+            onNext: provider.playNext,
+            onStop: provider.stop,
+            onRepeatToggle: provider.toggleRepeat,
+          ),
+          const SizedBox(width: 16),
+          VolumeDial(
+            value: provider.engine.masterVolume,
+            onChanged: provider.setMasterVolume,
+            size: 80,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -314,10 +326,7 @@ class _StatusBar extends StatelessWidget {
           Expanded(
             child: Text(
               provider.statusText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 11),
               overflow: TextOverflow.ellipsis,
             ),
           ),

@@ -106,8 +106,8 @@ class _TransportBtn extends StatelessWidget {
           shape: BoxShape.circle,
           color: enabled
               ? (highlight || active
-                  ? AppColors.accentPurple.withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.08))
+                    ? AppColors.accentPurple.withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.08))
               : Colors.transparent,
           border: Border.all(
             color: active
@@ -120,7 +120,11 @@ class _TransportBtn extends StatelessWidget {
           padding: EdgeInsets.all(highlight ? 10 : 8),
           child: Opacity(
             opacity: enabled ? 1.0 : 0.35,
-            child: Image.asset(asset),
+            child: Image.asset(
+              asset,
+              cacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
+            ),
           ),
         ),
       ),

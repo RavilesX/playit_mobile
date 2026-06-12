@@ -32,7 +32,10 @@ class PlaylistDrawer extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.folder_open, color: AppColors.accentBlue),
+                  icon: const Icon(
+                    Icons.folder_open,
+                    color: AppColors.accentBlue,
+                  ),
                   onPressed: () {
                     context.read<PlayerProvider>().pickLibraryFolder();
                   },
@@ -85,7 +88,8 @@ class _PlaylistList extends StatelessWidget {
                 backgroundColor: AppColors.accentPurple,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () => context.read<PlayerProvider>().pickLibraryFolder(),
+              onPressed: () =>
+                  context.read<PlayerProvider>().pickLibraryFolder(),
             ),
           ],
         ),
@@ -116,7 +120,9 @@ class _PlaylistList extends StatelessWidget {
           subtitle: Text(
             song.artist,
             style: TextStyle(
-              color: isCurrent ? AppColors.pinkHighlight.withValues(alpha: 0.8) : Colors.grey,
+              color: isCurrent
+                  ? AppColors.pinkHighlight.withValues(alpha: 0.8)
+                  : Colors.grey,
               fontSize: 12,
             ),
             overflow: TextOverflow.ellipsis,

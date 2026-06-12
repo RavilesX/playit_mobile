@@ -9,13 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  audio_service: ^0.18.18
   flutter_soloud: ^3.1.10
-  google_fonts: ^6.2.1
-  permission_handler: ^11.3.1
   file_picker: ^8.1.2
   shared_preferences: ^2.3.2
   provider: ^6.1.2
-  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
@@ -38,3 +36,7 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+  fonts:
+    - family: SairaStencilOne
+      fonts:
+        - asset: assets/fonts/SairaStencilOne-Regular.ttf

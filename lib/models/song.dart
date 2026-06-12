@@ -1,20 +1,23 @@
+/// A song's files are addressed by opaque refs (filesystem paths on
+/// desktop/iOS, content:// URIs on Android). Only the MediaLibrary that
+/// produced them knows how to read them.
 class Song {
   final String artist;
   final String title;
-  final String folderPath;
+
+  /// stem name ('drums', 'vocals', 'bass', 'other') -> ref. Always complete.
+  final Map<String, String> stemRefs;
+  final String? coverRef;
+  final String? lyricsRef;
 
   const Song({
     required this.artist,
     required this.title,
-    required this.folderPath,
+    required this.stemRefs,
+    this.coverRef,
+    this.lyricsRef,
   });
 
-  String get drumsPath => '$folderPath/separated/drums.mp3';
-  String get vocalsPath => '$folderPath/separated/vocals.mp3';
-  String get bassPath => '$folderPath/separated/bass.mp3';
-  String get otherPath => '$folderPath/separated/other.mp3';
-  String get coverPath => '$folderPath/cover.png';
-  String get lyricsPath => '$folderPath/lyrics.lrc';
   String get displayName => '$artist - $title';
 
   @override

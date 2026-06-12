@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
 enum PlaybackStatus { stopped, playing, paused }
@@ -18,7 +19,7 @@ class AudioEngine {
 
   PlaybackStatus _status = PlaybackStatus.stopped;
   Duration _duration = Duration.zero;
-  String? _folderPath;
+  bool _hasSong = false;
   void Function()? _onComplete;
 
   Timer? _positionTimer;
@@ -48,24 +49,34 @@ class AudioEngine {
     _onComplete = callback;
   }
 
-  Future<bool> load(String folderPath) async {
+  /// Loads the 4 stems from in-memory compressed bytes (works for both
+  /// filesystem and SAF content:// sources). [songKey] must be unique per
+  /// song — SoLoud uses it to identify the buffers.
+  Future<bool> load(String songKey, Map<String, Uint8List> stemBytes) async {
     try {
       await _initFuture;
       await _disposeSources();
-      _folderPath = folderPath;
+      _hasSong = true;
 
       for (final name in stemNames) {
-        _sources[name] =
-            await _soloud.loadFile('$folderPath/separated/$name.mp3');
+        _sources[name] = await _soloud.loadMem(
+          '$songKey/$name.mp3',
+          stemBytes[name]!,
+        );
       }
 
-      _duration = _soloud.getLength(_sources['drums']!);
+      // Stems can differ slightly in length; track the longest so
+      // end-of-track detection doesn't cut the others short.
+      _duration = stemNames
+          .map((n) => _soloud.getLength(_sources[n]!))
+          .reduce((a, b) => a > b ? a : b);
       await _createHandles();
 
       _status = PlaybackStatus.stopped;
       _completeFired = false;
       return true;
     } catch (e) {
+      debugPrint('AudioEngine.load("$songKey") failed: $e');
       return false;
     }
   }
@@ -100,12 +111,11 @@ class AudioEngine {
   }
 
   Future<void> play() async {
-    if (_folderPath == null || _sources.isEmpty) return;
+    if (!_hasSong || _sources.isEmpty) return;
 
     // Recreate handles if invalid (after stop or end-of-track)
     final drumsHandle = _handles['drums'];
-    if (drumsHandle == null ||
-        !_soloud.getIsValidVoiceHandle(drumsHandle)) {
+    if (drumsHandle == null || !_soloud.getIsValidVoiceHandle(drumsHandle)) {
       await _createHandles();
     }
 
@@ -147,8 +157,7 @@ class AudioEngine {
   Future<void> seek(Duration position) async {
     // If handles dead (e.g., after stop), recreate at position 0 then seek
     final drumsHandle = _handles['drums'];
-    if ((drumsHandle == null ||
-            !_soloud.getIsValidVoiceHandle(drumsHandle)) &&
+    if ((drumsHandle == null || !_soloud.getIsValidVoiceHandle(drumsHandle)) &&
         _sources.isNotEmpty) {
       await _createHandles();
     }
