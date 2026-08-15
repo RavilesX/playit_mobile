@@ -1,0 +1,12 @@
+# Copy this file to android/key.properties (gitignored — never commit the
+# real one) to build locally-signed release APKs/AABs.
+#
+# Generate a keystore first, if you don't have one yet:
+#   keytool -genkey -v -keystore ~/playit-release.jks -keyalg RSA \
+#     -keysize 2048 -validity 10000 -alias playit
+#
+# storeFile is resolved relative to the android/ directory.
+storeFile=/absolute/path/to/playit-release.jks
+storePassword=changeme
+keyAlias=playit
+keyPassword=changeme
