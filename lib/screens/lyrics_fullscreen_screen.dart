@@ -34,6 +34,7 @@ class _LyricsFullscreenScreenState extends State<LyricsFullscreenScreen> {
   Timer? _hideTimer;
   String? _muteNotice;
   Timer? _noticeTimer;
+  double _scaleAtGestureStart = 1.0;
 
   @override
   void initState() {
@@ -91,6 +92,12 @@ class _LyricsFullscreenScreenState extends State<LyricsFullscreenScreen> {
           behavior: HitTestBehavior.opaque,
           onTap: _toggleControls,
           onDoubleTap: () => Navigator.of(context).pop(),
+          // Pinch (two fingers) resizes the current line.
+          onScaleStart: (_) => _scaleAtGestureStart = provider.lyricsScale,
+          onScaleUpdate: (details) {
+            if (details.pointerCount < 2) return;
+            provider.setLyricsScale(_scaleAtGestureStart * details.scale);
+          },
           child: Stack(
             children: [
               SafeArea(
@@ -131,7 +138,7 @@ class _LyricsFullscreenScreenState extends State<LyricsFullscreenScreen> {
                     // shown or hidden, so this never shifts) — as low as
                     // possible without ever overlapping them. Font size is
                     // fixed on purpose: only the current line responds to
-                    // the A-/A+ scale, so the preview stays a stable size.
+                    // the pinch scale, so the preview stays a stable size.
                     if (nextLine != null && nextLine.text.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -253,10 +260,6 @@ class _BottomControls extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
-                icon: const Icon(Icons.text_decrease, color: Colors.white),
-                onPressed: () => provider.adjustLyricsScale(-0.1),
-              ),
-              IconButton(
                 icon: const Icon(Icons.replay_5, color: Colors.white, size: 28),
                 onPressed: () => onSeekBy(const Duration(seconds: -5)),
               ),
@@ -273,10 +276,6 @@ class _BottomControls extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.forward_5, color: Colors.white, size: 28),
                 onPressed: () => onSeekBy(const Duration(seconds: 5)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.text_increase, color: Colors.white),
-                onPressed: () => provider.adjustLyricsScale(0.1),
               ),
             ],
           ),

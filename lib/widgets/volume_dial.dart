@@ -6,29 +6,39 @@ class VolumeDial extends StatelessWidget {
   final double value; // 0.0 - 1.0
   final ValueChanged<double> onChanged;
   final double size;
+  final bool enabled;
+
+  /// Size the painter's proportions were designed at; every stroke, the knob
+  /// and the label scale off it so smaller dials keep the same look.
+  static const double baseSize = 90;
 
   const VolumeDial({
     super.key,
     required this.value,
     required this.onChanged,
-    this.size = 90,
+    this.size = baseSize,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Drag distance for a full 0→1 sweep scales with the dial, so a small
+    // dial doesn't feel sluggish.
+    final travel = 150 * (size / baseSize);
     return GestureDetector(
-      onVerticalDragUpdate: (d) {
-        final newVal = (value - d.delta.dy / 150).clamp(0.0, 1.0);
-        onChanged(newVal);
-      },
-      onHorizontalDragUpdate: (d) {
-        final newVal = (value + d.delta.dx / 150).clamp(0.0, 1.0);
-        onChanged(newVal);
-      },
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(painter: _DialPainter(value: value)),
+      onVerticalDragUpdate: enabled
+          ? (d) => onChanged((value - d.delta.dy / travel).clamp(0.0, 1.0))
+          : null,
+      onHorizontalDragUpdate: enabled
+          ? (d) => onChanged((value + d.delta.dx / travel).clamp(0.0, 1.0))
+          : null,
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.4,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: CustomPaint(painter: _DialPainter(value: value)),
+        ),
       ),
     );
   }
@@ -43,8 +53,10 @@ class _DialPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final k = size.width / VolumeDial.baseSize;
+    final stroke = 8 * k;
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 10;
+    final radius = size.width / 2 - 10 * k;
 
     // Track (background arc)
     canvas.drawArc(
@@ -54,7 +66,7 @@ class _DialPainter extends CustomPainter {
       false,
       Paint()
         ..color = AppColors.border
-        ..strokeWidth = 8
+        ..strokeWidth = stroke
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
     );
@@ -75,7 +87,7 @@ class _DialPainter extends CustomPainter {
             begin: Alignment.bottomLeft,
             end: Alignment.topRight,
           ).createShader(rect)
-          ..strokeWidth = 8
+          ..strokeWidth = stroke
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round,
       );
@@ -87,7 +99,7 @@ class _DialPainter extends CustomPainter {
     final knobY = center.dy + radius * math.sin(theta);
     canvas.drawCircle(
       Offset(knobX, knobY),
-      7,
+      7 * k,
       Paint()..color = AppColors.pinkHighlight,
     );
 
@@ -96,10 +108,10 @@ class _DialPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: '$pct',
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'SairaStencilOne',
           color: Colors.white,
-          fontSize: 18,
+          fontSize: 18 * k,
         ),
       ),
       textDirection: TextDirection.ltr,

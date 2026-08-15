@@ -16,6 +16,8 @@ class LyricsDisplay extends StatefulWidget {
 }
 
 class _LyricsDisplayState extends State<LyricsDisplay> {
+  double _scaleAtGestureStart = 1.0;
+
   void _openFullscreen() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const LyricsFullscreenScreen()),
@@ -146,28 +148,20 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onDoubleTap: lyrics.isEmpty ? null : _openFullscreen,
+          // Pinch (two fingers) resizes the lyrics. The pointerCount guard
+          // keeps one-finger drags with the TabBarView swipe.
+          onScaleStart: lyrics.isEmpty
+              ? null
+              : (_) => _scaleAtGestureStart = provider.lyricsScale,
+          onScaleUpdate: lyrics.isEmpty
+              ? null
+              : (details) {
+                  if (details.pointerCount < 2) return;
+                  provider.setLyricsScale(_scaleAtGestureStart * details.scale);
+                },
           child: content,
         ),
         if (lyrics.isNotEmpty) ...[
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  iconSize: 20,
-                  icon: const Icon(Icons.text_decrease, color: Colors.grey),
-                  onPressed: () => provider.adjustLyricsScale(-0.1),
-                ),
-                IconButton(
-                  iconSize: 20,
-                  icon: const Icon(Icons.text_increase, color: Colors.grey),
-                  onPressed: () => provider.adjustLyricsScale(0.1),
-                ),
-              ],
-            ),
-          ),
           Positioned(
             top: 0,
             left: 0,

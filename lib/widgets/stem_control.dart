@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import 'volume_dial.dart';
 
 class StemControl extends StatelessWidget {
   final String name; // 'drums', 'vocals', 'bass', 'other'
@@ -31,7 +32,7 @@ class StemControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // scaleDown keeps the fixed-size icon+slider column from overflowing
+    // scaleDown keeps the fixed-size icon+dial column from overflowing
     // tight rows (small phones, landscape)
     return FittedBox(
       fit: BoxFit.scaleDown,
@@ -111,28 +112,13 @@ class StemControl extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 6),
-          RotatedBox(
-            quarterTurns: 3,
-            child: SizedBox(
-              width: 70,
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 3,
-                  activeTrackColor: AppColors.accentPurple,
-                  inactiveTrackColor: AppColors.progressInactive,
-                  thumbColor: Colors.white,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 4,
-                  ),
-                  overlayShape: SliderComponentShape.noOverlay,
-                ),
-                child: Slider(
-                  value: volume,
-                  onChanged: enabled ? onVolumeChanged : null,
-                ),
-              ),
-            ),
+          const SizedBox(height: 2),
+          // Same dial as the master volume, scaled down.
+          VolumeDial(
+            value: volume,
+            onChanged: onVolumeChanged,
+            size: 58,
+            enabled: enabled,
           ),
         ],
       ),

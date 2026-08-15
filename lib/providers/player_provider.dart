@@ -56,6 +56,7 @@ class PlayerProvider extends ChangeNotifier {
   static const minLyricsScale = 0.6;
   static const maxLyricsScale = 2.5;
   double _lyricsScale = 1.0;
+  Timer? _lyricsScalePersist;
 
   /// Position updates at ~10 Hz. Exposed as a ValueNotifier so only the
   /// progress bar listens to it — the rest of the tree rebuilds via
@@ -172,11 +173,14 @@ class PlayerProvider extends ChangeNotifier {
     _persistLyricsScale();
   }
 
-  void adjustLyricsScale(double delta) => setLyricsScale(_lyricsScale + delta);
-
-  Future<void> _persistLyricsScale() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('lyrics_scale', _lyricsScale);
+  /// Debounced: a pinch gesture emits dozens of updates per second and each
+  /// one would otherwise hit SharedPreferences.
+  void _persistLyricsScale() {
+    _lyricsScalePersist?.cancel();
+    _lyricsScalePersist = Timer(const Duration(milliseconds: 400), () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('lyrics_scale', _lyricsScale);
+    });
   }
 
   Song? get currentSong =>
@@ -654,6 +658,7 @@ class PlayerProvider extends ChangeNotifier {
   void dispose() {
     _positionSub?.cancel();
     _playbackStateDebounce?.cancel();
+    _lyricsScalePersist?.cancel();
     positionNotifier.dispose();
     _engine.dispose();
     super.dispose();
