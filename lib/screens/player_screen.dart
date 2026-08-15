@@ -198,7 +198,26 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-class _TabSection extends StatelessWidget {
+class _TabSection extends StatefulWidget {
+  @override
+  State<_TabSection> createState() => _TabSectionState();
+}
+
+class _TabSectionState extends State<_TabSection> {
+  /// Live pointer count over the tab body. With two fingers down the page
+  /// swipe is disabled so the lyrics pinch-to-zoom wins the gesture arena —
+  /// otherwise the TabBarView's horizontal drag claims the pointers first and
+  /// the scale gesture never starts.
+  int _pointers = 0;
+  bool _swipeLocked = false;
+
+  void _updatePointers(int delta) {
+    _pointers = (_pointers + delta).clamp(0, 10);
+    final locked = _pointers >= 2;
+    // Only rebuild on the threshold crossing, not on every pointer event.
+    if (locked != _swipeLocked) setState(() => _swipeLocked = locked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PlayerProvider>();
@@ -219,14 +238,22 @@ class _TabSection extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: TabBarView(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: CoverView(coverBytes: provider.coverBytes),
-                ),
-                const LyricsDisplay(),
-              ],
+            child: Listener(
+              onPointerDown: (_) => _updatePointers(1),
+              onPointerUp: (_) => _updatePointers(-1),
+              onPointerCancel: (_) => _updatePointers(-1),
+              child: TabBarView(
+                physics: _swipeLocked
+                    ? const NeverScrollableScrollPhysics()
+                    : null,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: CoverView(coverBytes: provider.coverBytes),
+                  ),
+                  const LyricsDisplay(),
+                ],
+              ),
             ),
           ),
         ],

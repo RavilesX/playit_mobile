@@ -117,7 +117,7 @@ class StemControl extends StatelessWidget {
           VolumeDial(
             value: volume,
             onChanged: onVolumeChanged,
-            size: 58,
+            size: 44,
             enabled: enabled,
           ),
         ],

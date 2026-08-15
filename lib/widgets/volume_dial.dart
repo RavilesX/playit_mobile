@@ -111,7 +111,9 @@ class _DialPainter extends CustomPainter {
         style: TextStyle(
           fontFamily: 'SairaStencilOne',
           color: Colors.white,
-          fontSize: 18 * k,
+          // Floor at 10: the arc scales down fine, the percentage stops being
+          // readable well before it does.
+          fontSize: (18 * k).clamp(10.0, 18.0),
         ),
       ),
       textDirection: TextDirection.ltr,
