@@ -11,7 +11,7 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Desktop-informational)
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 </div>
@@ -26,6 +26,7 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 
 ### ✨ Características
 
+- **🆕 Control remoto de PlayIt Desktop por Wi-Fi** — maneja la reproducción del PC desde el móvil sin levantarte. Ver [sección dedicada](#-control-remoto-de-playit-desktop-novedad-de-la-v200).
 - Reproducción de 4 stems perfectamente sincronizados sobre un único reloj de muestreo.
 - Control de volumen y mute independiente por stem.
 - Letras sincronizadas (formato LRC), con soporte multi-línea.
@@ -33,6 +34,38 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 - Selección de biblioteca musical mediante Storage Access Framework (Android) o selector de archivos (escritorio/iOS) — **la app no declara permisos de almacenamiento**, requisito para publicación en Play Store.
 - Interfaz adaptable a orientación vertical y horizontal / pantallas anchas.
 - Buscador de actualizaciones integrado: consulta las publicaciones de este repositorio (menú ⋮ → *Buscar actualizaciones*). El aviso automático se puede desactivar en *Acerca de*.
+
+### 📡 Control remoto de PlayIt Desktop (novedad de la v2.0.0)
+
+Pensado para ensayar: estás con el instrumento, termina la canción, y en vez de levantarte hasta el PC para elegir la siguiente, la elegís desde el móvil.
+
+**Cómo se conecta**
+
+1. En el PC: *Opciones → Modo remoto (PlayIt Mobile)*. Aparece un código QR junto a la dirección y el código escritos.
+2. En el móvil: menú ⋮ → *Controlar PlayIt Desktop* → **Escanear código QR**. Si preferís no dar permiso de cámara, podés escribir la dirección y el código a mano — el modo remoto funciona igual.
+3. Listo. El emparejamiento queda guardado: la próxima vez se reconecta solo.
+
+**Qué podés hacer desde el móvil**
+
+- Reproducir / pausar, detener, anterior y siguiente.
+- Activar o desactivar la repetición.
+- Ver la playlist completa del PC y **tocar cualquier canción para reproducirla**.
+- Ver qué está sonando, con su carátula y el tiempo transcurrido.
+
+**Cómo funciona por dentro**
+
+- **Solo red local.** Ambos equipos tienen que estar en el mismo Wi-Fi. No hay servidores intermedios, no se usa internet, y nada sale de tu red.
+- **El audio nunca viaja.** Por la red solo pasan la lista de canciones (texto), la carátula de la que suena y comandos de unos pocos bytes. La música sigue sonando por los parlantes del PC.
+- **Emparejamiento con código.** Cada sesión de modo remoto genera un código aleatorio; sin él no se acepta ningún comando. Solo se aceptan conexiones desde direcciones de red local.
+- **Si el router le cambia la IP al PC**, el móvil lo busca en la red y se reconecta solo con el mismo código, sin volver a escanear el QR.
+
+**Requisitos y limitaciones**
+
+- Necesitás una versión de [PlayIt Desktop](https://github.com/RavilesX/playit) que incluya el modo remoto.
+- Las redes Wi-Fi de invitados suelen aislar los dispositivos entre sí y bloquean la conexión.
+- La primera vez, el firewall de Windows puede pedir autorización (dos veces: una por cada tipo de conexión).
+- La conexión no va cifrada. En tu red doméstica o de sala de ensayo es razonable; en una red pública, alguien en el mismo segmento podría llegar a controlar la reproducción. El botón *Generar nuevo código* del PC invalida cualquier móvil emparejado.
+- Al entrar en modo remoto se detiene la reproducción local del móvil, para que no suenen dos fuentes a la vez.
 
 ### ⚠️ Requisito previo: PlayIt Desktop
 
@@ -97,6 +130,8 @@ Componentes principales:
 - **`PlayItAudioHandler`** — integración con `audio_service` para la sesión multimedia del sistema.
 - **`lrc_parser`** — parser de letras en formato LRC.
 - **`player_screen`** — pantalla única, con layouts adaptables según orientación/ancho.
+- **`RemoteProvider` / `RemoteClient`** — control remoto de PlayIt Desktop: cliente HTTP sobre la red local, sondeo de estado a 1 Hz y comandos. Estado propio, separado de `PlayerProvider`.
+- **`remote_discovery`** — localiza el PC en la red mediante broadcast UDP, para reconectar cuando cambia su IP.
 
 
 ### 🧩 Stack técnico
@@ -107,6 +142,7 @@ Componentes principales:
 ![provider](https://img.shields.io/badge/provider-gesti%C3%B3n%20de%20estado-green)
 ![file_picker](https://img.shields.io/badge/file__picker-selector%20de%20archivos-yellow)
 ![shared_preferences](https://img.shields.io/badge/shared__preferences-persistencia-lightblue)
+![mobile_scanner](https://img.shields.io/badge/mobile__scanner-lectura%20de%20QR-red)
 
 ---
 
@@ -118,6 +154,7 @@ Componentes principales:
 
 ### ✨ Features
 
+- **🆕 Remote control for PlayIt Desktop over Wi-Fi** — drive playback on your PC from your phone. See the [dedicated section](#-remote-control-for-playit-desktop-new-in-v200).
 - 4-stem playback, sample-accurate, sharing a single audio clock.
 - Independent volume/mute control per stem.
 - Synced lyrics (LRC format), with multi-line support.
@@ -125,6 +162,38 @@ Componentes principales:
 - Music library selection via Storage Access Framework (Android) or file picker (desktop/iOS) — **the app declares no storage permissions**, a requirement for Play Store publication.
 - Adaptive UI for portrait/landscape and wide screens.
 - Built-in update checker: queries this repository's releases (⋮ menu → *Buscar actualizaciones*). The automatic prompt can be turned off in *Acerca de*.
+
+### 📡 Remote control for PlayIt Desktop (new in v2.0.0)
+
+Built for rehearsing: you're holding an instrument, the song ends, and instead of walking over to the PC to pick the next one, you pick it from your phone.
+
+**Pairing**
+
+1. On the PC: *Opciones → Modo remoto (PlayIt Mobile)*. A QR code appears, along with the address and code in plain text.
+2. On the phone: ⋮ menu → *Controlar PlayIt Desktop* → **Escanear código QR**. If you'd rather not grant camera access, type the address and code by hand — the remote works either way.
+3. Done. The pairing is saved, so next time it reconnects on its own.
+
+**What you can do from the phone**
+
+- Play / pause, stop, previous and next.
+- Toggle repeat.
+- Browse the PC's full playlist and **tap any song to play it**.
+- See what's playing, with its cover art and elapsed time.
+
+**How it works**
+
+- **Local network only.** Both devices must be on the same Wi-Fi. No intermediary servers, no internet, nothing leaves your network.
+- **Audio never travels.** Only the song list (text), the current cover art and a few bytes of commands go over the wire. The music keeps playing through the PC's speakers.
+- **Code-based pairing.** Each remote-mode session generates a random code; without it no command is accepted. Only local-network addresses are allowed to connect.
+- **If the router changes the PC's IP**, the phone finds it on the network and reconnects with the same code — no need to scan the QR again.
+
+**Requirements and limitations**
+
+- You need a build of [PlayIt Desktop](https://github.com/RavilesX/playit) that includes remote mode.
+- Guest Wi-Fi networks usually isolate devices from each other, which blocks the connection.
+- On first use, Windows Firewall may ask for authorization (twice — once per connection type).
+- The connection is not encrypted. On a home or rehearsal-room network that's reasonable; on a public network, someone on the same segment could take over playback. The PC's *Generar nuevo código* button invalidates any paired phone.
+- Entering remote mode stops local playback on the phone, so two sources never play at once.
 
 ### ⚠️ Prerequisite: PlayIt Desktop
 
@@ -189,6 +258,8 @@ Key components:
 - **`PlayItAudioHandler`** — `audio_service` integration for the system media session.
 - **`lrc_parser`** — LRC lyrics parser.
 - **`player_screen`** — the app's single screen, with adaptive layouts by orientation/width.
+- **`RemoteProvider` / `RemoteClient`** — remote control for PlayIt Desktop: HTTP client over the local network, 1 Hz state polling and commands. Its own state, kept separate from `PlayerProvider`.
+- **`remote_discovery`** — finds the PC on the network via UDP broadcast, to reconnect when its IP changes.
 
 
 ### 🧩 Tech stack
@@ -199,6 +270,7 @@ Key components:
 ![provider](https://img.shields.io/badge/provider-state%20management-green)
 ![file_picker](https://img.shields.io/badge/file__picker-file%20selector-yellow)
 ![shared_preferences](https://img.shields.io/badge/shared__preferences-persistence-lightblue)
+![mobile_scanner](https://img.shields.io/badge/mobile__scanner-QR%20scanning-red)
 
 ---
 
