@@ -127,7 +127,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                 child: Text.rich(
                   lyricLineSpan(
                     nextLine,
-                    kLyricsBaseNextFontSize * scale,
+                    kLyricsBaseNextFontSize,
                     isCurrent: false,
                   ),
                   textAlign: TextAlign.center,

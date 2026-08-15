@@ -8,7 +8,7 @@ import '../services/audio_engine.dart';
 import '../utils/lyric_colors.dart';
 
 const _kFullscreenCurrentFontSize = 56.0;
-const _kFullscreenNextFontSize = 32.0;
+const _kFullscreenNextFontSize = 26.0;
 
 const _stemLabels = {
   'drums': 'Batería',

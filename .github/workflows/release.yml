@@ -12,6 +12,10 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    # `secrets` isn't usable directly in step `if:` conditions — route it
+    # through job-level env first, which step `if:` can read.
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,11 +49,11 @@ jobs:
       # android/key.properties.example for what to generate and RELEASE.md
       # for how to add the secrets below.
       - name: Restore signing keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/release.jks
 
       - name: Write key.properties
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
         run: |
           cat > android/key.properties <<EOF
           storeFile=release.jks
