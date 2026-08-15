@@ -29,5 +29,29 @@ void main() {
       expect(songsFromDataJson('[1,2,3]'), isEmpty);
       expect(songsFromDataJson(''), isEmpty);
     });
+
+    test('extracts the metadata block when present', () {
+      const raw = '''
+      {"Alejandro Sanz": {"Corazón Partío": {
+        "path": "music_library/Alejandro Sanz/Corazón Partío",
+        "metadata": {"album": "Colección Definitiva", "anio": "2011",
+                      "genero": "Latin Pop", "formato": "FLAC", "kbps": 320}
+      }}}''';
+      final result = songsFromDataJson(raw);
+      expect(result.single.metadata['album'], 'Colección Definitiva');
+      expect(result.single.metadata['kbps'], 320);
+    });
+
+    test('metadata is empty when the block is absent (old library entries)', () {
+      const raw = '{"A": {"x": {"path": "some/path"}}}';
+      final result = songsFromDataJson(raw);
+      expect(result.single.metadata, isEmpty);
+    });
+
+    test('metadata is empty when the song entry is not a map', () {
+      const raw = '{"A": {"x": "not a map"}}';
+      final result = songsFromDataJson(raw);
+      expect(result.single.metadata, isEmpty);
+    });
   });
 }

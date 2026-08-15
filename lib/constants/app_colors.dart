@@ -10,6 +10,12 @@ class AppColors {
   static const Color pinkText = Color(0xFFFC5490);
   static const Color lyricsCurrentColor = Color(0xFFF88FFF);
   static const Color lyricsNextColor = Color(0xFFD3D3D3);
+
+  /// Line-color tags from the desktop .lrc format (LYRIC_COLORS in
+  /// lyrics_sync_editor.py). `azul` reuses [accentBlue] — same hex.
+  static const Color lyricAzul = accentBlue;
+  static const Color lyricBlanco = Color(0xFFF6F5F4);
+  static const Color lyricRojo = Color(0xFFB23A36);
   static const Color gradientA = Color(0xFF7A82FF); // rgba(122,130,255)
   static const Color gradientB = Color(0xFF844CAB); // rgba(132,76,171)
   static const Color progressActive = Color(0xFFBC87FF); // blend purple-blue

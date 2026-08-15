@@ -8,6 +8,7 @@ import '../widgets/cover_view.dart';
 import '../widgets/lyrics_display.dart';
 import '../widgets/playlist_drawer.dart';
 import '../widgets/progress_bar_widget.dart';
+import '../widgets/spectrum_visualizer.dart';
 import '../widgets/stem_control.dart';
 import '../widgets/transport_controls.dart';
 import '../widgets/volume_dial.dart';
@@ -177,6 +178,16 @@ class _AppBar extends StatelessWidget {
             ),
           ),
           IconButton(
+            icon: Icon(
+              Icons.graphic_eq,
+              color: provider.spectrumEnabled
+                  ? AppColors.accentPurple
+                  : Colors.grey,
+            ),
+            onPressed: () => context.read<PlayerProvider>().toggleSpectrum(),
+            tooltip: 'Visualizador de espectro',
+          ),
+          IconButton(
             icon: const Icon(Icons.folder_open, color: AppColors.accentBlue),
             onPressed: () => context.read<PlayerProvider>().pickLibraryFolder(),
             tooltip: 'Seleccionar carpeta',
@@ -214,11 +225,7 @@ class _TabSection extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   child: CoverView(coverBytes: provider.coverBytes),
                 ),
-                LyricsDisplay(
-                  song: provider.currentSong,
-                  lyrics: provider.lyrics,
-                  currentIndex: provider.currentLyricIndex,
-                ),
+                const LyricsDisplay(),
               ],
             ),
           ),
@@ -234,6 +241,9 @@ class _StemControlsRow extends StatelessWidget {
     final provider = context.watch<PlayerProvider>();
     final enabled = provider.currentIndex >= 0;
 
+    final showSpectrum =
+        provider.spectrumEnabled && provider.status == PlaybackStatus.playing;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -243,20 +253,34 @@ class _StemControlsRow extends StatelessWidget {
           bottom: BorderSide(color: AppColors.border),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: stemNames.map((name) {
-          return Expanded(
-            child: StemControl(
-              name: name,
-              muted: provider.engine.muteStates[name] ?? false,
-              volume: provider.engine.stemVolumes[name] ?? 1.0,
-              enabled: enabled,
-              onMuteToggle: () => provider.toggleMute(name),
-              onVolumeChanged: (v) => provider.setStemVolume(name, v),
+      child: Stack(
+        children: [
+          if (showSpectrum)
+            const Positioned.fill(
+              child: Opacity(opacity: 0.5, child: SpectrumVisualizer()),
             ),
-          );
-        }).toList(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: stemNames.map((name) {
+              return Expanded(
+                child: StemControl(
+                  name: name,
+                  muted: provider.engine.muteStates[name] ?? false,
+                  volume: provider.engine.stemVolumes[name] ?? 1.0,
+                  enabled: enabled,
+                  onMuteToggle: () => provider.toggleMute(name),
+                  onVolumeChanged: (v) => provider.setStemVolume(name, v),
+                  autoUnmuteEnabled: name == 'vocals'
+                      ? provider.autoUnmuteEnabled
+                      : null,
+                  onAutoUnmuteToggle: name == 'vocals'
+                      ? provider.toggleAutoUnmute
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -301,6 +325,8 @@ class _TransportRow extends StatelessWidget {
             onNext: provider.playNext,
             onStop: provider.stop,
             onRepeatToggle: provider.toggleRepeat,
+            onSeekBack: () => provider.seekBy(const Duration(seconds: -5)),
+            onSeekForward: () => provider.seekBy(const Duration(seconds: 5)),
           ),
           const SizedBox(width: 16),
           VolumeDial(

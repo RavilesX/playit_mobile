@@ -12,6 +12,8 @@ class TransportControls extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onStop;
   final VoidCallback onRepeatToggle;
+  final VoidCallback? onSeekBack;
+  final VoidCallback? onSeekForward;
 
   const TransportControls({
     super.key,
@@ -24,12 +26,15 @@ class TransportControls extends StatelessWidget {
     required this.onNext,
     required this.onStop,
     required this.onRepeatToggle,
+    this.onSeekBack,
+    this.onSeekForward,
   });
 
   @override
   Widget build(BuildContext context) {
     final active = hasPlaylist;
     final canStop = hasCurrentSong;
+    final canSeek = hasCurrentSong && status != PlaybackStatus.stopped;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -41,12 +46,26 @@ class TransportControls extends StatelessWidget {
           onTap: onPrev,
         ),
         const SizedBox(width: 8),
+        _TransportIconBtn(
+          icon: Icons.replay_5,
+          size: 34,
+          enabled: canSeek,
+          onTap: onSeekBack,
+        ),
+        const SizedBox(width: 8),
         _TransportBtn(
           asset: 'assets/icons/play.png',
           size: 70,
           enabled: active,
           onTap: onPlayPause,
           highlight: true,
+        ),
+        const SizedBox(width: 8),
+        _TransportIconBtn(
+          icon: Icons.forward_5,
+          size: 34,
+          enabled: canSeek,
+          onTap: onSeekForward,
         ),
         const SizedBox(width: 8),
         _TransportBtn(
@@ -73,6 +92,45 @@ class TransportControls extends StatelessWidget {
           active: repeatMode,
         ),
       ],
+    );
+  }
+}
+
+class _TransportIconBtn extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _TransportIconBtn({
+    required this.icon,
+    required this.size,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: enabled ? 0.08 : 0.0),
+          border: Border.all(
+            color: enabled ? AppColors.accentPurple : AppColors.border,
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: size * 0.55,
+          color: enabled
+              ? Colors.white
+              : Colors.grey.withValues(alpha: 0.4),
+        ),
+      ),
     );
   }
 }

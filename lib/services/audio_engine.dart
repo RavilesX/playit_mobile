@@ -17,6 +17,11 @@ class AudioEngine {
   final Map<String, bool> _muteStates = {for (final n in stemNames) n: false};
   double _masterVolume = 0.25;
 
+  /// Fade duration for auto-unmute transitions (AUTO_UNMUTE_FADE_S in
+  /// desktop's audio_player.py).
+  static const autoUnmuteFade = Duration(milliseconds: 500);
+  bool _autoUnmuteActive = false;
+
   PlaybackStatus _status = PlaybackStatus.stopped;
   Duration _duration = Duration.zero;
   bool _hasSong = false;
@@ -36,6 +41,16 @@ class AudioEngine {
     if (!_soloud.isInitialized) {
       await _soloud.init();
     }
+    // Global anti-clipping safety net: the 4 stems are summed in SoLoud's
+    // mix bus, so a high master/stem volume combination can exceed 0dB.
+    // Mirrors desktop's per-block peak normalization (§7.2 in the
+    // functional doc) without needing to touch the mix ourselves.
+    try {
+      // ignore: experimental_member_use
+      _soloud.filters.limiterFilter.activate();
+    } catch (e) {
+      debugPrint('limiterFilter activation failed: $e');
+    }
   }
 
   PlaybackStatus get status => _status;
@@ -43,6 +58,9 @@ class AudioEngine {
   double get masterVolume => _masterVolume;
   Map<String, double> get stemVolumes => Map.unmodifiable(_stemVolumes);
   Map<String, bool> get muteStates => Map.unmodifiable(_muteStates);
+
+  /// True while auto-unmute is currently letting the (muted) voice through.
+  bool get autoUnmuteActive => _autoUnmuteActive;
   Stream<Duration> get positionStream => _positionController.stream;
 
   void setOnComplete(void Function() callback) {
@@ -70,6 +88,7 @@ class AudioEngine {
       _duration = stemNames
           .map((n) => _soloud.getLength(_sources[n]!))
           .reduce((a, b) => a > b ? a : b);
+      _autoUnmuteActive = false;
       await _createHandles();
 
       _status = PlaybackStatus.stopped;
@@ -149,6 +168,7 @@ class AudioEngine {
     }
     _handles.clear();
     _status = PlaybackStatus.stopped;
+    _autoUnmuteActive = false;
     if (!_positionController.isClosed) {
       _positionController.add(Duration.zero);
     }
@@ -181,9 +201,41 @@ class AudioEngine {
     _applyVolumes();
   }
 
-  void toggleMute(String name) {
-    _muteStates[name] = !(_muteStates[name] ?? false);
+  void toggleMute(String name) => setMuted(name, !(_muteStates[name] ?? false));
+
+  /// Sets a stem's mute state directly (vs. [toggleMute]) — used to restore
+  /// persisted state on startup without depending on the default value.
+  void setMuted(String name, bool muted) {
+    _muteStates[name] = muted;
+    if (name == 'vocals' && !muted) {
+      // Manual unmute: auto-unmute has nothing left to do.
+      _autoUnmuteActive = false;
+    }
     _applyVolumes();
+  }
+
+  /// Enables/disables FFT sampling for the spectrum visualizer. Cheap to
+  /// leave off — only turn on while the visualizer widget is mounted.
+  Future<void> setVisualizationEnabled(bool enabled) async {
+    try {
+      await _initFuture;
+      _soloud.setVisualizationEnabled(enabled);
+      if (enabled) _soloud.setFftSmoothing(0.85);
+    } catch (e) {
+      debugPrint('setVisualizationEnabled($enabled) failed: $e');
+    }
+  }
+
+  /// Smoothly brings the (muted) vocals stem up or down with
+  /// [autoUnmuteFade], driven by whether the current lyric line is blank.
+  /// No-op unless vocals is actually muted — see [_applyVolumes].
+  void setAutoUnmuteGain(bool active) {
+    if (active == _autoUnmuteActive) return;
+    _autoUnmuteActive = active;
+    final h = _handles['vocals'];
+    if (h == null || !_soloud.getIsValidVoiceHandle(h)) return;
+    final base = (_stemVolumes['vocals'] ?? 1.0) * _masterVolume;
+    _soloud.fadeVolume(h, active ? base : 0.0, autoUnmuteFade);
   }
 
   void _applyVolumes() {
@@ -192,7 +244,14 @@ class AudioEngine {
       if (h == null || !_soloud.getIsValidVoiceHandle(h)) continue;
       final muted = _muteStates[name] ?? false;
       final stemVol = _stemVolumes[name] ?? 1.0;
-      _soloud.setVolume(h, muted ? 0.0 : stemVol * _masterVolume);
+      final base = stemVol * _masterVolume;
+      // While auto-unmute is actively fading vocals in, apply volume/master
+      // slider changes immediately instead of fighting the in-flight fade.
+      if (name == 'vocals' && muted && _autoUnmuteActive) {
+        _soloud.setVolume(h, base);
+        continue;
+      }
+      _soloud.setVolume(h, muted ? 0.0 : base);
     }
   }
 

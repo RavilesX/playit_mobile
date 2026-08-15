@@ -9,6 +9,11 @@ class StemControl extends StatelessWidget {
   final VoidCallback onMuteToggle;
   final ValueChanged<double> onVolumeChanged;
 
+  /// Vocals-only: whether auto-unmute is enabled, and its toggle. Null for
+  /// every other stem (no badge shown).
+  final bool? autoUnmuteEnabled;
+  final VoidCallback? onAutoUnmuteToggle;
+
   const StemControl({
     super.key,
     required this.name,
@@ -17,6 +22,8 @@ class StemControl extends StatelessWidget {
     required this.enabled,
     required this.onMuteToggle,
     required this.onVolumeChanged,
+    this.autoUnmuteEnabled,
+    this.onAutoUnmuteToggle,
   });
 
   String get _iconAsset =>
@@ -31,35 +38,78 @@ class StemControl extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
-            onTap: enabled ? onMuteToggle : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: muted
-                    ? null
-                    : const LinearGradient(
-                        colors: [AppColors.accentPurple, AppColors.gradientA],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                color: muted ? Colors.transparent : null,
-                border: Border.all(
-                  color: muted ? AppColors.border : AppColors.accentPurple,
-                  width: 2,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onTap: enabled ? onMuteToggle : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: muted
+                        ? null
+                        : const LinearGradient(
+                            colors: [
+                              AppColors.accentPurple,
+                              AppColors.gradientA,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                    color: muted ? Colors.transparent : null,
+                    border: Border.all(
+                      color: muted ? AppColors.border : AppColors.accentPurple,
+                      width: 2,
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: Image.asset(
+                    _iconAsset,
+                    width: 48,
+                    height: 48,
+                    cacheWidth: (48 * MediaQuery.devicePixelRatioOf(context))
+                        .round(),
+                    color: enabled ? null : Colors.grey.withValues(alpha: 0.4),
+                  ),
                 ),
               ),
-              padding: const EdgeInsets.all(6),
-              child: Image.asset(
-                _iconAsset,
-                width: 48,
-                height: 48,
-                cacheWidth: (48 * MediaQuery.devicePixelRatioOf(context))
-                    .round(),
-                color: enabled ? null : Colors.grey.withValues(alpha: 0.4),
-              ),
-            ),
+              if (autoUnmuteEnabled != null)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: GestureDetector(
+                    onTap: enabled ? onAutoUnmuteToggle : null,
+                    child: Tooltip(
+                      message:
+                          'Auto-unmute: deja oír la voz en los tramos '
+                          'sin letra',
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.85),
+                          border: Border.all(
+                            color: autoUnmuteEnabled!
+                                ? AppColors.accentBlue
+                                : AppColors.border,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Icon(
+                          autoUnmuteEnabled!
+                              ? Icons.record_voice_over
+                              : Icons.voice_over_off,
+                          size: 14,
+                          color: autoUnmuteEnabled!
+                              ? AppColors.accentBlue
+                              : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           RotatedBox(
