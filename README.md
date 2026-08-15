@@ -1,6 +1,17 @@
+<div align="center">
+
+<img src="assets/icons/main_icon.png" width="120" alt="PlayIt Mobile logo" />
+
 # PlayIt Mobile
 
 Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built with Flutter.
+
+![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Desktop-informational)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![License](https://img.shields.io/badge/license-unlicensed-lightgrey)
+
+</div>
 
 ---
 
@@ -8,7 +19,7 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 
 **PlayIt Mobile** es un reproductor de audio para Flutter que separa cada canción en 4 stems (batería, voz, bajo y otros) reproducidos en sincronía sample-accurate. El usuario puede silenciar o ajustar el volumen de cada stem de forma independiente (por ejemplo, silenciar la voz para hacer karaoke). Incluye letras sincronizadas mediante archivos LRC.
 
-### Características
+### ✨ Características
 
 - Reproducción de 4 stems perfectamente sincronizados sobre un único reloj de muestreo.
 - Control de volumen y mute independiente por stem.
@@ -17,7 +28,7 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 - Selección de biblioteca musical mediante Storage Access Framework (Android) o selector de archivos (escritorio/iOS) — **la app no declara permisos de almacenamiento**, requisito para publicación en Play Store.
 - Interfaz adaptable a orientación vertical y horizontal / pantallas anchas.
 
-### Estructura esperada de la biblioteca musical
+### 📁 Estructura esperada de la biblioteca musical
 
 Cada canción vive en su propia carpeta:
 
@@ -34,7 +45,7 @@ Cada canción vive en su propia carpeta:
 
 Los 4 stems son obligatorios para que la canción aparezca en la biblioteca. `cover.png` y `lyrics.lrc` son opcionales.
 
-### Comandos
+### ⚙️ Comandos
 
 ```bash
 flutter pub get                      # instalar dependencias
@@ -45,7 +56,7 @@ flutter test test/widget_test.dart   # ejecutar un test específico
 flutter build apk                    # build de release para Android
 ```
 
-### Arquitectura
+### 🏗️ Arquitectura
 
 El estado de la app fluye a través de un único `ChangeNotifierProvider` (`PlayerProvider`), que gestiona la playlist, la canción actual, el estado de reproducción y la sincronización de letras. La posición de reproducción vive en un `ValueNotifier` separado para evitar reconstrucciones de UI a 10 Hz.
 
@@ -60,9 +71,14 @@ Componentes principales:
 
 Para más detalle técnico, ver [CLAUDE.md](CLAUDE.md).
 
-### Stack técnico
+### 🧩 Stack técnico
 
-Flutter · `flutter_soloud` (motor de audio) · `audio_service` (sesión multimedia) · `provider` (gestión de estado) · `file_picker` · `shared_preferences`
+![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)
+![flutter_soloud](https://img.shields.io/badge/flutter__soloud-audio%20engine-orange)
+![audio_service](https://img.shields.io/badge/audio__service-sesi%C3%B3n%20multimedia-purple)
+![provider](https://img.shields.io/badge/provider-gesti%C3%B3n%20de%20estado-green)
+![file_picker](https://img.shields.io/badge/file__picker-selector%20de%20archivos-yellow)
+![shared_preferences](https://img.shields.io/badge/shared__preferences-persistencia-lightblue)
 
 ---
 
@@ -70,7 +86,7 @@ Flutter · `flutter_soloud` (motor de audio) · `audio_service` (sesión multime
 
 **PlayIt Mobile** is a Flutter multi-stem audio player. Each song is split into 4 stems (drums, vocals, bass, other) that play in sample-accurate sync. Users can mute or adjust each stem independently (e.g. mute vocals for karaoke). It includes synced lyrics via LRC files.
 
-### Features
+### ✨ Features
 
 - 4-stem playback, sample-accurate, sharing a single audio clock.
 - Independent volume/mute control per stem.
@@ -79,7 +95,7 @@ Flutter · `flutter_soloud` (motor de audio) · `audio_service` (sesión multime
 - Music library selection via Storage Access Framework (Android) or file picker (desktop/iOS) — **the app declares no storage permissions**, a requirement for Play Store publication.
 - Adaptive UI for portrait/landscape and wide screens.
 
-### Expected music library layout
+### 📁 Expected music library layout
 
 Each song lives in its own folder:
 
@@ -96,7 +112,7 @@ Each song lives in its own folder:
 
 All 4 stems are mandatory for a song to be listed. `cover.png` and `lyrics.lrc` are optional.
 
-### Commands
+### ⚙️ Commands
 
 ```bash
 flutter pub get                      # install dependencies
@@ -107,7 +123,7 @@ flutter test test/widget_test.dart   # run a single test file
 flutter build apk                    # Android release build
 ```
 
-### Architecture
+### 🏗️ Architecture
 
 App state flows through a single `ChangeNotifierProvider` (`PlayerProvider`), which owns the playlist, current song, playback status, and lyrics sync. Playback position lives in a separate `ValueNotifier` to avoid 10 Hz UI rebuilds.
 
@@ -122,12 +138,17 @@ Key components:
 
 See [CLAUDE.md](CLAUDE.md) for deeper technical detail.
 
-### Tech stack
+### 🧩 Tech stack
 
-Flutter · `flutter_soloud` (audio engine) · `audio_service` (media session) · `provider` (state management) · `file_picker` · `shared_preferences`
+![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)
+![flutter_soloud](https://img.shields.io/badge/flutter__soloud-audio%20engine-orange)
+![audio_service](https://img.shields.io/badge/audio__service-media%20session-purple)
+![provider](https://img.shields.io/badge/provider-state%20management-green)
+![file_picker](https://img.shields.io/badge/file__picker-file%20selector-yellow)
+![shared_preferences](https://img.shields.io/badge/shared__preferences-persistence-lightblue)
 
 ---
 
-## Licencia / License
+## 📄 Licencia / License
 
 Sin licencia definida aún. / No license defined yet.
