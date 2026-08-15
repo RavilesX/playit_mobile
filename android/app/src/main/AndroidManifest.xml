@@ -9,14 +9,31 @@
          permission (no runtime prompt, no Play Store restriction). -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Sólo para leer el QR de emparejamiento del modo remoto. Es un permiso
+         runtime: se pide al abrir el escáner y nunca antes. Negarlo no rompe
+         nada — el emparejamiento manual (dirección + código) hace lo mismo.
+         mobile_scanner ya lo declara; queda acá explícito para que el
+         inventario de permisos de la app se lea en un solo archivo.
+         No es un permiso de almacenamiento: la regla de la biblioteca por SAF
+         sigue intacta. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <!-- Background playback with media-style notification (audio_service) -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
 
+    <!-- El modo remoto habla HTTP plano con PlayIt Desktop en la red local
+         (http://192.168.x.x:8770). Desde API 28 Android bloquea el tráfico
+         sin TLS, y una IP privada no puede tener certificado: sin esto toda
+         petición falla con "Cleartext HTTP traffic not permitted".
+         Es un atributo del manifiesto, no un permiso: no pide nada al
+         usuario ni cambia la política de Play Store. -->
     <application
         android:label="Play It"
         android:name="${applicationName}"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

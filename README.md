@@ -6,6 +6,9 @@
 
 Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built with Flutter.
 
+**⚠️ Solo reproduce: la separación de stems la hace [PlayIt Desktop](https://github.com/RavilesX/playit).**<br/>
+**⚠️ Player only: stem separation is done by [PlayIt Desktop](https://github.com/RavilesX/playit).**
+
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Desktop-informational)
 ![Version](https://img.shields.io/badge/version-1.3.0-blue)
@@ -31,9 +34,32 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 - Interfaz adaptable a orientación vertical y horizontal / pantallas anchas.
 - Buscador de actualizaciones integrado: consulta las publicaciones de este repositorio (menú ⋮ → *Buscar actualizaciones*). El aviso automático se puede desactivar en *Acerca de*.
 
+### ⚠️ Requisito previo: PlayIt Desktop
+
+> **PlayIt Mobile no separa canciones en stems. Es únicamente un reproductor.**
+
+La separación de audio la hace el proyecto de escritorio [**PlayIt**](https://github.com/RavilesX/playit). PlayIt Mobile solo reproduce carpetas que ya vienen separadas: si intentas abrir un MP3 normal, no aparecerá en la biblioteca.
+
+**Flujo de trabajo completo:**
+
+1. **En el PC** — procesa la canción con PlayIt Desktop. Genera una carpeta por canción con `data.json`, los 4 stems dentro de `separated/`, y opcionalmente la portada y las letras.
+2. **Copia esas carpetas al móvil** — por USB, tarjeta SD, o el método que prefieras. Colócalas todas dentro de una misma carpeta contenedora, que será tu biblioteca.
+
+   ```
+   Musica/                       ← esta es la carpeta que seleccionas
+     Artista - Canción 1/        ← carpeta generada por PlayIt Desktop
+     Artista - Canción 2/
+     ...
+   ```
+
+3. **En el móvil** — pulsa el botón 📂 de la barra superior y selecciona la carpeta contenedora. Android pedirá permiso mediante el selector del sistema; el permiso queda guardado y no hay que repetirlo en cada arranque.
+4. La app recorre esa carpeta de forma recursiva buscando archivos `data.json` y arma la biblioteca sola.
+
+**Si una canción no aparece**, casi siempre es porque a su carpeta le falta `data.json` o alguno de los 4 stems. Una canción con stems incompletos se omite a propósito.
+
 ### 📁 Estructura esperada de la biblioteca musical
 
-Cada canción vive en su propia carpeta:
+Cada canción vive en su propia carpeta (esto es exactamente lo que produce PlayIt Desktop):
 
 ```
 <carpeta de la canción>/
@@ -100,9 +126,32 @@ Componentes principales:
 - Adaptive UI for portrait/landscape and wide screens.
 - Built-in update checker: queries this repository's releases (⋮ menu → *Buscar actualizaciones*). The automatic prompt can be turned off in *Acerca de*.
 
+### ⚠️ Prerequisite: PlayIt Desktop
+
+> **PlayIt Mobile does not separate songs into stems. It is a player only.**
+
+Source separation is done by the desktop project [**PlayIt**](https://github.com/RavilesX/playit). PlayIt Mobile only plays folders that are already separated: a plain MP3 will not show up in the library.
+
+**Full workflow:**
+
+1. **On your PC** — process the song with PlayIt Desktop. It produces one folder per song containing `data.json`, the 4 stems under `separated/`, and optionally cover art and lyrics.
+2. **Copy those folders to your phone** — over USB, an SD card, or whatever you prefer. Put them all inside a single parent folder, which becomes your library.
+
+   ```
+   Music/                        ← this is the folder you select
+     Artist - Song 1/            ← folder produced by PlayIt Desktop
+     Artist - Song 2/
+     ...
+   ```
+
+3. **On the phone** — tap the 📂 button in the top bar and pick the parent folder. Android asks for access through the system picker; the grant is persisted, so you only do this once.
+4. The app walks that folder recursively looking for `data.json` files and builds the library on its own.
+
+**If a song doesn't show up**, it's almost always because its folder is missing `data.json` or one of the 4 stems. Songs with incomplete stems are skipped on purpose.
+
 ### 📁 Expected music library layout
 
-Each song lives in its own folder:
+Each song lives in its own folder (exactly what PlayIt Desktop produces):
 
 ```
 <song folder>/

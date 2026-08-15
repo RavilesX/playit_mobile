@@ -75,6 +75,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Modo remoto: la cámara sólo se abre para leer el QR de emparejamiento,
+	     y la red local es por donde viajan los comandos a PlayIt Desktop. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Para leer el código QR que muestra PlayIt Desktop y conectarse a la PC.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Para controlar PlayIt Desktop en la misma red Wi-Fi.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

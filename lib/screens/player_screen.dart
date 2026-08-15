@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/player_provider.dart';
 import '../services/audio_engine.dart';
+import 'remote_screen.dart';
 import '../widgets/cover_view.dart';
 import '../widgets/lyrics_display.dart';
 import '../widgets/playlist_drawer.dart';
@@ -220,6 +221,8 @@ class _AppBar extends StatelessWidget {
             tooltip: 'Más opciones',
             onSelected: (value) {
               switch (value) {
+                case 'remote':
+                  RemoteScreen.open(context);
                 case 'update':
                   runManualUpdateCheck(context);
                 case 'about':
@@ -227,6 +230,17 @@ class _AppBar extends StatelessWidget {
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'remote',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.settings_remote, color: Colors.white),
+                  title: Text(
+                    'Controlar PlayIt Desktop',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
               PopupMenuItem(
                 value: 'update',
                 child: ListTile(
