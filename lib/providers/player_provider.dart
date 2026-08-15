@@ -521,7 +521,8 @@ class PlayerProvider extends ChangeNotifier {
     await _engine.stop();
     _status = PlaybackStatus.stopped;
     positionNotifier.value = Duration.zero;
-    _lyrics = [];
+    // Keep _lyrics: the song stays selected, so discarding them made the
+    // lyrics tab claim "Sin letras disponibles" until playback restarted.
     _currentLyricIndex = -1;
     _statusText = 'Detenido';
     notifyListeners();

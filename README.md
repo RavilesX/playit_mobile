@@ -69,7 +69,6 @@ Componentes principales:
 - **`lrc_parser`** — parser de letras en formato LRC.
 - **`player_screen`** — pantalla única, con layouts adaptables según orientación/ancho.
 
-Para más detalle técnico, ver [CLAUDE.md](CLAUDE.md).
 
 ### 🧩 Stack técnico
 
@@ -136,7 +135,6 @@ Key components:
 - **`lrc_parser`** — LRC lyrics parser.
 - **`player_screen`** — the app's single screen, with adaptive layouts by orientation/width.
 
-See [CLAUDE.md](CLAUDE.md) for deeper technical detail.
 
 ### 🧩 Tech stack
 
