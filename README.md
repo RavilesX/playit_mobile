@@ -29,6 +29,7 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 - Integración con la sesión multimedia del sistema (notificación, pantalla de bloqueo, controles del auricular, reproducción en segundo plano).
 - Selección de biblioteca musical mediante Storage Access Framework (Android) o selector de archivos (escritorio/iOS) — **la app no declara permisos de almacenamiento**, requisito para publicación en Play Store.
 - Interfaz adaptable a orientación vertical y horizontal / pantallas anchas.
+- Buscador de actualizaciones integrado: consulta las publicaciones de este repositorio (menú ⋮ → *Buscar actualizaciones*). El aviso automático se puede desactivar en *Acerca de*.
 
 ### 📁 Estructura esperada de la biblioteca musical
 
@@ -97,6 +98,7 @@ Componentes principales:
 - System media session integration (notification, lock screen, headset controls, background playback).
 - Music library selection via Storage Access Framework (Android) or file picker (desktop/iOS) — **the app declares no storage permissions**, a requirement for Play Store publication.
 - Adaptive UI for portrait/landscape and wide screens.
+- Built-in update checker: queries this repository's releases (⋮ menu → *Buscar actualizaciones*). The automatic prompt can be turned off in *Acerca de*.
 
 ### 📁 Expected music library layout
 

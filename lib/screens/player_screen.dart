@@ -10,11 +10,33 @@ import '../widgets/playlist_drawer.dart';
 import '../widgets/progress_bar_widget.dart';
 import '../widgets/spectrum_visualizer.dart';
 import '../widgets/stem_control.dart';
+import '../services/update_checker.dart';
 import '../widgets/transport_controls.dart';
+import '../widgets/update_dialogs.dart';
 import '../widgets/volume_dial.dart';
 
-class PlayerScreen extends StatelessWidget {
+class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
+
+  @override
+  State<PlayerScreen> createState() => _PlayerScreenState();
+}
+
+class _PlayerScreenState extends State<PlayerScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Silent check: honours the user's preference, at most once a day, and
+    // never interrupts with an error if there's no network.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdates());
+  }
+
+  Future<void> _checkForUpdates() async {
+    final current = await currentAppVersion();
+    final release = await UpdateChecker().checkForUpdateSilently(current);
+    if (release == null || !mounted) return;
+    await showUpdateAvailableDialog(context, release, current, skippable: true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,6 +213,43 @@ class _AppBar extends StatelessWidget {
             icon: const Icon(Icons.folder_open, color: AppColors.accentBlue),
             onPressed: () => context.read<PlayerProvider>().pickLibraryFolder(),
             tooltip: 'Seleccionar carpeta',
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            color: Colors.black,
+            tooltip: 'Más opciones',
+            onSelected: (value) {
+              switch (value) {
+                case 'update':
+                  runManualUpdateCheck(context);
+                case 'about':
+                  showAboutPlayItDialog(context);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'update',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.system_update, color: Colors.white),
+                  title: Text(
+                    'Buscar actualizaciones',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'about',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.info_outline, color: Colors.white),
+                  title: Text(
+                    'Acerca de',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -3,6 +3,12 @@
     <!-- No storage permissions: library access goes through the Storage
          Access Framework (persisted folder grant via system picker). -->
 
+    <!-- Only used by the update checker: one request to the GitHub Releases
+         API, and opening the release page in the browser. The app plays
+         local files and never uploads anything. INTERNET is a normal-level
+         permission (no runtime prompt, no Play Store restriction). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- Background playback with media-style notification (audio_service) -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -55,6 +61,12 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- url_launcher needs this on Android 11+ to resolve a browser for
+             the release page. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>
