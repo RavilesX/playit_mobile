@@ -1,5 +1,8 @@
 # See https://www.dartlang.org/guides/libraries/private-files
 
+PLAN_REMOTO.md
+PLAN_ACTUALIZACION.md
+
 # Files and directories created by pub
 .dart_tool/
 .packages
@@ -28,5 +31,3 @@ doc/api/
 .flutter-plugins
 .flutter-plugins-dependencies
 CLAUDE.md
-PLAN_REMOTO.md
-PLAN_ACTUALIZACION.md
