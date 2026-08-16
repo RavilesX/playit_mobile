@@ -149,7 +149,7 @@ class _Footer extends StatelessWidget {
       color: Colors.black,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       child: Text(
-        message ?? 'Apuntá al código QR que muestra PlayIt en la PC.',
+        message ?? 'Apunta al código QR que muestra PlayIt en la PC.',
         textAlign: TextAlign.center,
         style: TextStyle(
           color: bad ? AppColors.pinkText : Colors.grey,
@@ -173,12 +173,12 @@ class _ScannerError extends StatelessWidget {
     final unsupported = error.errorCode == MobileScannerErrorCode.unsupported;
 
     final text = denied
-        ? 'Sin permiso de cámara no se puede leer el QR. Podés volver y '
+        ? 'Sin permiso de cámara no se puede leer el QR. Puedes volver y '
               'escribir la dirección y el código a mano.'
         : unsupported
-        ? 'Este dispositivo no puede escanear códigos. Volvé y escribí los '
+        ? 'Este dispositivo no puede escanear códigos. Vuelve y escribe los '
               'datos a mano.'
-        : 'No se pudo abrir la cámara. Volvé y escribí los datos a mano.';
+        : 'No se pudo abrir la cámara. Vuelve y escribe los datos a mano.';
 
     return ColoredBox(
       color: Colors.black,

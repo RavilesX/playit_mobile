@@ -37,15 +37,15 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 
 ### 📡 Control remoto de PlayIt Desktop (novedad de la v2.0.0)
 
-Pensado para ensayar: estás con el instrumento, termina la canción, y en vez de levantarte hasta el PC para elegir la siguiente, la elegís desde el móvil.
+Pensado para ensayar: estás con el instrumento, termina la canción, y en vez de levantarte hasta el PC para elegir la siguiente, la eliges desde el móvil.
 
 **Cómo se conecta**
 
 1. En el PC: *Opciones → Modo remoto (PlayIt Mobile)*. Aparece un código QR junto a la dirección y el código escritos.
-2. En el móvil: menú ⋮ → *Controlar PlayIt Desktop* → **Escanear código QR**. Si preferís no dar permiso de cámara, podés escribir la dirección y el código a mano — el modo remoto funciona igual.
+2. En el móvil: menú ⋮ → *Controlar PlayIt Desktop* → **Escanear código QR**. Si prefieres no dar permiso de cámara, puedes escribir la dirección y el código a mano — el modo remoto funciona igual.
 3. Listo. El emparejamiento queda guardado: la próxima vez se reconecta solo.
 
-**Qué podés hacer desde el móvil**
+**Qué puedes hacer desde el móvil**
 
 - Reproducir / pausar, detener, anterior y siguiente.
 - Activar o desactivar la repetición.
@@ -61,7 +61,7 @@ Pensado para ensayar: estás con el instrumento, termina la canción, y en vez d
 
 **Requisitos y limitaciones**
 
-- Necesitás una versión de [PlayIt Desktop](https://github.com/RavilesX/playit) que incluya el modo remoto.
+- Necesitas una versión de [PlayIt Desktop](https://github.com/RavilesX/playit) que incluya el modo remoto.
 - Las redes Wi-Fi de invitados suelen aislar los dispositivos entre sí y bloquean la conexión.
 - La primera vez, el firewall de Windows puede pedir autorización (dos veces: una por cada tipo de conexión).
 - La conexión no va cifrada. En tu red doméstica o de sala de ensayo es razonable; en una red pública, alguien en el mismo segmento podría llegar a controlar la reproducción. El botón *Generar nuevo código* del PC invalida cualquier móvil emparejado.

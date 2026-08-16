@@ -36,7 +36,7 @@ void main() {
           isA<RemotePairingException>().having(
             (e) => e.message,
             'message',
-            contains('Actualizá'),
+            contains('Actualiza'),
           ),
         ),
       );
@@ -296,7 +296,7 @@ void main() {
         ]),
         throwsA(
           isA<RemotePairingException>()
-              .having((e) => e.message, 'message', contains('Actualizá'))
+              .having((e) => e.message, 'message', contains('Actualiza'))
               .having((e) => e.recognized, 'recognized', isTrue),
         ),
       );

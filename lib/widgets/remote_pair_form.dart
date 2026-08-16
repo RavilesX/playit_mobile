@@ -102,7 +102,7 @@ class _RemotePairFormState extends State<RemotePairForm> {
 
     if (found.isEmpty) {
       setState(() => _error =
-          'No se encontró ninguna PC. Verificá que PlayIt esté abierto con el '
+          'No se encontró ninguna PC. Verifica que PlayIt esté abierto con el '
           'modo remoto activo, y que ambos estén en la misma red.');
       return;
     }
@@ -161,7 +161,7 @@ class _RemotePairFormState extends State<RemotePairForm> {
         ),
         const SizedBox(height: 12),
         const Text(
-          'En la PC abrí Opciones → Modo remoto y escaneá el código QR que '
+          'En la PC abre Opciones → Modo remoto y escanea el código QR que '
           'aparece.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),

@@ -66,7 +66,7 @@ class RemoteClient {
     if (version is int && version > kRemoteProtocolVersion) {
       throw const RemoteException(
         RemoteErrorKind.versionIncompatible,
-        'La PC usa una versión más nueva de PlayIt. Actualizá PlayIt Mobile.',
+        'La PC usa una versión más nueva de PlayIt. Actualiza PlayIt Mobile.',
       );
     }
     final name = json['name'];
@@ -165,7 +165,7 @@ class RemoteClient {
     throw switch (error) {
       SocketException() => const RemoteException(
         RemoteErrorKind.noResponde,
-        'No se encontró la PC. Verificá que ambos estén en la misma red Wi-Fi.',
+        'No se encontró la PC. Verifica que ambos estén en la misma red Wi-Fi.',
       ),
       TimeoutException() => const RemoteException(
         RemoteErrorKind.noResponde,
@@ -203,7 +203,7 @@ class RemoteClient {
     throw switch (status) {
       401 => const RemoteException(
         RemoteErrorKind.noAutorizado,
-        'El código ya no es válido. Volvé a emparejar desde la PC.',
+        'El código ya no es válido. Vuelve a emparejar desde la PC.',
       ),
       403 => const RemoteException(
         RemoteErrorKind.rechazado,

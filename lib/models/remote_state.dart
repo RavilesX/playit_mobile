@@ -75,7 +75,7 @@ class PairingInfo {
     final version = decoded['v'];
     if (version is int && version > kRemoteProtocolVersion) {
       throw const RemotePairingException(
-        'La PC usa una versión más nueva. Actualizá PlayIt Mobile.',
+        'La PC usa una versión más nueva. Actualiza PlayIt Mobile.',
         recognized: true,
       );
     }
@@ -148,7 +148,7 @@ class PairingInfo {
 /// value is tried before giving up.
 ///
 /// Throws [RemotePairingException] with the most useful failure in the frame:
-/// a PlayIt code we can't use ("actualizá la app") beats a QR that was never
+/// a PlayIt code we can't use ("actualiza la app") beats a QR that was never
 /// ours ("no es de PlayIt Desktop"), because only the first one tells the user
 /// they are pointing at the right thing.
 PairingInfo pairingFromBarcodes(Iterable<String?> rawValues) {
