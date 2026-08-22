@@ -20,12 +20,16 @@ List<Song> sortedSongs(
   if (key == 'song') {
     cmp = (a, b) {
       final c = a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      return c != 0 ? c : a.artist.toLowerCase().compareTo(b.artist.toLowerCase());
+      return c != 0
+          ? c
+          : a.artist.toLowerCase().compareTo(b.artist.toLowerCase());
     };
   } else {
     cmp = (a, b) {
       final c = a.artist.toLowerCase().compareTo(b.artist.toLowerCase());
-      return c != 0 ? c : a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      return c != 0
+          ? c
+          : a.title.toLowerCase().compareTo(b.title.toLowerCase());
     };
   }
   out.sort(reverse ? (a, b) => cmp(b, a) : cmp);

@@ -26,7 +26,8 @@ songsFromDataJson(String raw) {
   try {
     final data = jsonDecode(raw);
     if (data is! Map<String, dynamic>) return const [];
-    final out = <({String artist, String title, Map<String, dynamic> metadata})>[];
+    final out =
+        <({String artist, String title, Map<String, dynamic> metadata})>[];
     for (final artist in data.keys) {
       final artistMap = data[artist];
       if (artistMap is! Map) continue;
@@ -69,16 +70,14 @@ class FileMediaLibrary implements MediaLibrary {
     if (File(coverPath).existsSync()) return coverPath;
 
     try {
-      final candidates = Directory(folder)
-          .listSync()
-          .whereType<File>()
-          .map((f) => f.path)
-          .where((p) {
-            final lower = p.toLowerCase();
-            return _fallbackCoverExtensions.any((ext) => lower.endsWith(ext));
-          })
-          .toList()
-        ..sort();
+      final candidates =
+          Directory(
+              folder,
+            ).listSync().whereType<File>().map((f) => f.path).where((p) {
+              final lower = p.toLowerCase();
+              return _fallbackCoverExtensions.any((ext) => lower.endsWith(ext));
+            }).toList()
+            ..sort();
       return candidates.isEmpty ? null : candidates.first;
     } catch (_) {
       return null;
@@ -174,7 +173,8 @@ class SafMediaLibrary implements MediaLibrary {
       }
       if (!complete) continue;
 
-      final coverRef = byRelPath[child('cover.png')] ?? _fallbackCover(byRelPath, dir);
+      final coverRef =
+          byRelPath[child('cover.png')] ?? _fallbackCover(byRelPath, dir);
 
       for (final e in entries) {
         songs.add(
@@ -209,8 +209,7 @@ class SafMediaLibrary implements MediaLibrary {
       if (_dirname(rel) != dir) return false;
       final lower = rel.toLowerCase();
       return _fallbackCoverExtensions.any((ext) => lower.endsWith(ext));
-    }).toList()
-      ..sort();
+    }).toList()..sort();
     return candidates.isEmpty ? null : byRelPath[candidates.first];
   }
 }

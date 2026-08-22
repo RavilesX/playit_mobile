@@ -9,7 +9,9 @@ import '../providers/player_provider.dart';
 import '../providers/remote_provider.dart';
 import '../services/audio_engine.dart';
 import '../utils/duration_format.dart';
+import '../widgets/remote_mixer.dart';
 import '../widgets/remote_pair_form.dart';
+import '../widgets/search_field.dart';
 import 'qr_scan_screen.dart';
 
 /// Remote control for PlayIt Desktop on the same Wi-Fi (PLAN_REMOTO.md).
@@ -19,9 +21,9 @@ import 'qr_scan_screen.dart';
 class RemoteScreen extends StatefulWidget {
   const RemoteScreen({super.key});
 
-  static Future<void> open(BuildContext context) => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => const RemoteScreen()),
-  );
+  static Future<void> open(BuildContext context) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const RemoteScreen()));
 
   @override
   State<RemoteScreen> createState() => _RemoteScreenState();
@@ -91,7 +93,10 @@ class _RemoteScreenState extends State<RemoteScreen>
       child: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset('assets/images/background.png', fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/images/background.png',
+              fit: BoxFit.cover,
+            ),
           ),
           Scaffold(
             backgroundColor: Colors.black.withValues(alpha: 0.75),
@@ -230,91 +235,174 @@ class _ConnectedView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remote = context.watch<RemoteProvider>();
-    return Column(
-      children: [
-        if (remote.errorMessage.isNotEmpty)
-          _ErrorBanner(message: remote.errorMessage),
-        const _NowPlayingHeader(),
-        const Expanded(child: _RemotePlaylistList()),
-        const _RemoteTransport(),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Landscape phones (and portrait with the keyboard up) don't have
+        // room for full-size chrome above the playlist; below this height
+        // every fixed-size section shrinks together so the total always
+        // fits instead of overflowing the Column.
+        final compact = constraints.maxHeight < 420;
+        // Compact chrome floors out around 207px (header+search+mixer+
+        // transport at their smallest fixed sizes, measured). Landscape
+        // with the keyboard up can still be shorter than that, so shrink
+        // further instead of overflowing.
+        const compactFloor = 207.0;
+        final scale = compact && constraints.maxHeight < compactFloor
+            ? (constraints.maxHeight / compactFloor).clamp(0.55, 1.0)
+            : 1.0;
+        return Column(
+          children: [
+            if (remote.errorMessage.isNotEmpty)
+              _ErrorBanner(message: remote.errorMessage),
+            _NowPlayingHeader(compact: compact, scale: scale),
+            // The search field's TextField has a fixed minimum height that
+            // can't shrink further; when even the scaled-down chrome
+            // doesn't fit, drop it instead of overflowing.
+            if (remote.playlist.items.isNotEmpty && scale >= 1.0)
+              _RemoteSearchField(compact: compact),
+            const Expanded(child: _RemotePlaylistList()),
+            // Older desktops don't serve the mixer fields; hiding the
+            // controls beats offering buttons that answer 400.
+            if (remote.hasMixer)
+              RemoteMixerBar(compact: compact, scale: scale),
+            _RemoteTransport(compact: compact, scale: scale),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RemoteSearchField extends StatelessWidget {
+  final bool compact;
+  const _RemoteSearchField({this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final query = context.select<RemoteProvider, String>((r) => r.searchQuery);
+    return Padding(
+      padding: compact
+          ? const EdgeInsets.fromLTRB(12, 4, 12, 2)
+          : const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: SearchField(
+        query: query,
+        onChanged: (v) => context.read<RemoteProvider>().setSearchQuery(v),
+      ),
     );
   }
 }
 
 class _NowPlayingHeader extends StatelessWidget {
-  const _NowPlayingHeader();
+  final bool compact;
+  final double scale;
+  const _NowPlayingHeader({this.compact = false, this.scale = 1.0});
 
   @override
   Widget build(BuildContext context) {
     final remote = context.watch<RemoteProvider>();
     final state = remote.state;
+    final title = state.hasSong ? state.song : 'Sin canción';
+    final subtitle = state.duration == Duration.zero
+        ? state.playbackLabel
+        : '${state.playbackLabel}  ·  '
+              '${formatSongDuration(state.position)} / '
+              '${formatSongDuration(state.duration)}';
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: compact
+          ? EdgeInsets.symmetric(horizontal: 16, vertical: 6 * scale)
+          : const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
-          _RemoteCover(bytes: remote.coverBytes),
-          const SizedBox(width: 14),
+          _RemoteCover(bytes: remote.coverBytes, compact: compact, scale: scale),
+          SizedBox(width: compact ? 14 * scale : 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  state.hasSong ? state.song : 'Sin canción',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.lyricsCurrentColor,
-                    fontSize: 18,
-                  ),
-                ),
-                if (state.hasSong)
-                  Text(
-                    state.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.accentBlue,
-                      fontSize: 14,
-                    ),
-                  ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(
-                      state.isPlaying
-                          ? Icons.play_arrow
-                          : state.isStopped
-                          ? Icons.stop
-                          : Icons.pause,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        state.duration == Duration.zero
-                            ? state.playbackLabel
-                            : '${state.playbackLabel}  ·  '
-                                  '${formatSongDuration(state.position)} / '
-                                  '${formatSongDuration(state.duration)}',
+            // Landscape/short screens collapse to two lines: title, then
+            // artist and playback status merged into one — the full
+            // 3-4 line layout is what pushed the header past the
+            // available height there.
+            child: compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.lyricsCurrentColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        state.hasSong
+                            ? '${state.artist}  ·  $subtitle'
+                            : subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.grey,
-                          fontSize: 12,
+                          fontSize: 11,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.lyricsCurrentColor,
+                          fontSize: 18,
+                        ),
+                      ),
+                      if (state.hasSong)
+                        Text(
+                          state.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.accentBlue,
+                            fontSize: 14,
+                          ),
+                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            state.isPlaying
+                                ? Icons.play_arrow
+                                : state.isStopped
+                                ? Icons.stop
+                                : Icons.pause,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -326,17 +414,25 @@ class _NowPlayingHeader extends StatelessWidget {
 /// without `cover.png` and for desktops too old to serve `/api/cover`.
 class _RemoteCover extends StatelessWidget {
   final Uint8List? bytes;
-  const _RemoteCover({required this.bytes});
+  final bool compact;
+  final double scale;
+  const _RemoteCover({
+    required this.bytes,
+    this.compact = false,
+    this.scale = 1.0,
+  });
 
-  static const _side = 64.0;
+  static const _fullSide = 64.0;
+  static const _compactSide = 40.0;
 
   @override
   Widget build(BuildContext context) {
+    final side = compact ? _compactSide * scale : _fullSide;
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
-        width: _side,
-        height: _side,
+        width: side,
+        height: side,
         child: bytes == null
             ? const ColoredBox(
                 color: AppColors.surface,
@@ -350,8 +446,8 @@ class _RemoteCover extends StatelessWidget {
                 bytes!,
                 fit: BoxFit.cover,
                 gaplessPlayback: true,
-                cacheWidth:
-                    (_side * MediaQuery.devicePixelRatioOf(context)).round(),
+                cacheWidth: (side * MediaQuery.devicePixelRatioOf(context))
+                    .round(),
                 errorBuilder: (_, _, _) => const ColoredBox(
                   color: AppColors.surface,
                   child: Icon(
@@ -372,12 +468,21 @@ class _RemotePlaylistList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remote = context.watch<RemoteProvider>();
-    final items = remote.playlist.items;
 
-    if (items.isEmpty) {
+    if (remote.playlist.items.isEmpty) {
       return const Center(
         child: Text(
           'La PC no tiene canciones cargadas',
+          style: TextStyle(color: AppColors.border),
+        ),
+      );
+    }
+
+    final items = remote.visibleTracks;
+    if (items.isEmpty) {
+      return const Center(
+        child: Text(
+          'Sin resultados',
           style: TextStyle(color: AppColors.border),
         ),
       );
@@ -430,7 +535,13 @@ class _RemotePlaylistList extends StatelessWidget {
 /// Five buttons, deliberately oversized: they get used standing up, behind a
 /// drum kit, with sticks in hand.
 class _RemoteTransport extends StatelessWidget {
-  const _RemoteTransport();
+  final bool compact;
+
+  /// Extra shrink factor for when [compact] alone still doesn't fit
+  /// vertically (landscape with the keyboard up). 1.0 = no extra shrink.
+  final double scale;
+
+  const _RemoteTransport({this.compact = false, this.scale = 1.0});
 
   @override
   Widget build(BuildContext context) {
@@ -438,51 +549,75 @@ class _RemoteTransport extends StatelessWidget {
     final state = remote.state;
     final hasPlaylist = remote.playlist.items.isNotEmpty;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-      decoration: const BoxDecoration(
-        color: Colors.black,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _RemoteBtn(
-            asset: 'assets/icons/prev.png',
-            size: 56,
-            enabled: hasPlaylist,
-            onTap: () => context.read<RemoteProvider>().previous(),
+    final baseSize = (compact ? 40.0 : 56.0) * (compact ? scale : 1);
+    final playSize = (compact ? 60.0 : 84.0) * (compact ? scale : 1);
+    final hPadding = compact ? 8.0 * scale : 12.0;
+    final vPadding = compact ? 6.0 * scale : 14.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The five buttons are fixed-size (deliberately, for use behind a
+        // drum kit) so on the narrowest phones (~320dp) they don't fit
+        // side by side; scale them down just enough to fit instead of
+        // overflowing the row.
+        // Only the buttons themselves shrink — hPadding stays fixed — so
+        // the available width for the scale check excludes it too.
+        final available = constraints.maxWidth - hPadding * 2;
+        final needed = baseSize * 4 + playSize;
+        final widthScale = available < needed ? available / needed : 1.0;
+        final btnSize = baseSize * widthScale;
+        final playBtnSize = playSize * widthScale;
+
+        return Container(
+          padding: EdgeInsets.symmetric(
+            vertical: vPadding,
+            horizontal: hPadding,
           ),
-          _RemoteBtn(
-            asset: 'assets/icons/play.png',
-            size: 84,
-            enabled: hasPlaylist,
-            highlight: true,
-            onTap: () => context.read<RemoteProvider>().togglePlayPause(),
+          decoration: const BoxDecoration(
+            color: Colors.black,
+            border: Border(top: BorderSide(color: AppColors.border)),
           ),
-          _RemoteBtn(
-            asset: 'assets/icons/stop.png',
-            size: 56,
-            enabled: !state.isStopped,
-            onTap: () => context.read<RemoteProvider>().stop(),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _RemoteBtn(
+                asset: 'assets/icons/prev.png',
+                size: btnSize,
+                enabled: hasPlaylist,
+                onTap: () => context.read<RemoteProvider>().previous(),
+              ),
+              _RemoteBtn(
+                asset: 'assets/icons/play.png',
+                size: playBtnSize,
+                enabled: hasPlaylist,
+                highlight: true,
+                onTap: () => context.read<RemoteProvider>().togglePlayPause(),
+              ),
+              _RemoteBtn(
+                asset: 'assets/icons/stop.png',
+                size: btnSize,
+                enabled: !state.isStopped,
+                onTap: () => context.read<RemoteProvider>().stop(),
+              ),
+              _RemoteBtn(
+                asset: 'assets/icons/next.png',
+                size: btnSize,
+                enabled: hasPlaylist,
+                onTap: () => context.read<RemoteProvider>().next(),
+              ),
+              _RemoteBtn(
+                asset: state.repeat
+                    ? 'assets/icons/repeat_on.png'
+                    : 'assets/icons/repeat.png',
+                size: btnSize,
+                enabled: true,
+                active: state.repeat,
+                onTap: () => context.read<RemoteProvider>().toggleRepeat(),
+              ),
+            ],
           ),
-          _RemoteBtn(
-            asset: 'assets/icons/next.png',
-            size: 56,
-            enabled: hasPlaylist,
-            onTap: () => context.read<RemoteProvider>().next(),
-          ),
-          _RemoteBtn(
-            asset: state.repeat
-                ? 'assets/icons/repeat_on.png'
-                : 'assets/icons/repeat.png',
-            size: 56,
-            enabled: true,
-            active: state.repeat,
-            onTap: () => context.read<RemoteProvider>().toggleRepeat(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -41,7 +41,11 @@ TextSpan lyricLineSpan(
     );
   }
   return TextSpan(
-    style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, height: 1.4),
+    style: TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.bold,
+      height: 1.4,
+    ),
     children: children,
   );
 }

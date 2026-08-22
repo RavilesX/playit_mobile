@@ -6,6 +6,7 @@ import '../constants/app_colors.dart';
 import '../providers/player_provider.dart';
 import '../services/audio_engine.dart';
 import '../utils/lyric_colors.dart';
+import '../widgets/fit_lyric_text.dart';
 
 const _kFullscreenCurrentFontSize = 56.0;
 const _kFullscreenNextFontSize = 26.0;
@@ -25,8 +26,7 @@ class LyricsFullscreenScreen extends StatefulWidget {
   const LyricsFullscreenScreen({super.key});
 
   @override
-  State<LyricsFullscreenScreen> createState() =>
-      _LyricsFullscreenScreenState();
+  State<LyricsFullscreenScreen> createState() => _LyricsFullscreenScreenState();
 }
 
 class _LyricsFullscreenScreenState extends State<LyricsFullscreenScreen> {
@@ -123,13 +123,10 @@ class _LyricsFullscreenScreenState extends State<LyricsFullscreenScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: currentLine == null
                               ? const SizedBox.shrink()
-                              : Text.rich(
-                                  lyricLineSpan(
-                                    currentLine,
-                                    _kFullscreenCurrentFontSize * scale,
-                                    isCurrent: true,
-                                  ),
-                                  textAlign: TextAlign.center,
+                              : FitLyricText(
+                                  line: currentLine,
+                                  fontSize: _kFullscreenCurrentFontSize * scale,
+                                  isCurrent: true,
                                 ),
                         ),
                       ),
@@ -274,7 +271,11 @@ class _BottomControls extends StatelessWidget {
                 onPressed: provider.togglePlayPause,
               ),
               IconButton(
-                icon: const Icon(Icons.forward_5, color: Colors.white, size: 28),
+                icon: const Icon(
+                  Icons.forward_5,
+                  color: Colors.white,
+                  size: 28,
+                ),
                 onPressed: () => onSeekBy(const Duration(seconds: 5)),
               ),
             ],

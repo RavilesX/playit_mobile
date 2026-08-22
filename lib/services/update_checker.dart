@@ -160,12 +160,16 @@ class UpdateChecker {
     : fetch = fetch ?? _httpGet;
 
   static Future<String> _httpGet(String url) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10);
     try {
       final request = await client.getUrl(Uri.parse(url));
       // GitHub rejects requests without a User-Agent.
       request.headers.set(HttpHeaders.userAgentHeader, 'PlayItMobile');
-      request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        'application/vnd.github+json',
+      );
       final response = await request.close().timeout(
         const Duration(seconds: 15),
       );
@@ -181,9 +185,7 @@ class UpdateChecker {
         );
       }
       if (response.statusCode != 200) {
-        throw UpdateCheckException(
-          'GitHub respondió ${response.statusCode}.',
-        );
+        throw UpdateCheckException('GitHub respondió ${response.statusCode}.');
       }
       return await response.transform(utf8.decoder).join();
     } on SocketException {

@@ -12,10 +12,9 @@ import '../models/remote_state.dart';
 class QrScanScreen extends StatefulWidget {
   const QrScanScreen({super.key});
 
-  static Future<PairingInfo?> open(BuildContext context) =>
-      Navigator.of(context).push<PairingInfo>(
-        MaterialPageRoute(builder: (_) => const QrScanScreen()),
-      );
+  static Future<PairingInfo?> open(BuildContext context) => Navigator.of(
+    context,
+  ).push<PairingInfo>(MaterialPageRoute(builder: (_) => const QrScanScreen()));
 
   @override
   State<QrScanScreen> createState() => _QrScanScreenState();
@@ -87,30 +86,35 @@ class _QrScanScreenState extends State<QrScanScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (ctx, constraints) {
-                final size = constraints.biggest;
-                final side = size.shortestSide * 0.7;
-                final window = Rect.fromCenter(
-                  center: size.center(Offset.zero),
-                  width: side,
-                  height: side,
-                );
-                return MobileScanner(
-                  controller: _controller,
-                  onDetect: _onDetect,
-                  scanWindow: window,
-                  errorBuilder: (ctx, error) => _ScannerError(error: error),
-                  overlayBuilder: (ctx, _) => _Viewfinder(side: side),
-                );
-              },
+      body: SafeArea(
+        // AppBar already covers the top inset; this just keeps the footer
+        // text clear of the gesture-navigation bar on the bottom.
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (ctx, constraints) {
+                  final size = constraints.biggest;
+                  final side = size.shortestSide * 0.7;
+                  final window = Rect.fromCenter(
+                    center: size.center(Offset.zero),
+                    width: side,
+                    height: side,
+                  );
+                  return MobileScanner(
+                    controller: _controller,
+                    onDetect: _onDetect,
+                    scanWindow: window,
+                    errorBuilder: (ctx, error) => _ScannerError(error: error),
+                    overlayBuilder: (ctx, _) => _Viewfinder(side: side),
+                  );
+                },
+              ),
             ),
-          ),
-          _Footer(message: _message),
-        ],
+            _Footer(message: _message),
+          ],
+        ),
       ),
     );
   }
@@ -147,7 +151,7 @@ class _Footer extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: Colors.black,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Text(
         message ?? 'Apunta al código QR que muestra PlayIt en la PC.',
         textAlign: TextAlign.center,

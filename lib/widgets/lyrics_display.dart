@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../providers/player_provider.dart';
 import '../screens/lyrics_fullscreen_screen.dart';
 import '../utils/lyric_colors.dart';
+import 'fit_lyric_text.dart';
 
 const kLyricsBaseCurrentFontSize = 28.0;
 const kLyricsBaseNextFontSize = 16.0;
@@ -19,9 +20,9 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   double _scaleAtGestureStart = 1.0;
 
   void _openFullscreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LyricsFullscreenScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const LyricsFullscreenScreen()));
   }
 
   @override
@@ -59,9 +60,12 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Sin letras disponibles',
-            style: TextStyle(color: AppColors.border),
+          // While the .lrc file is still being read after a song switch,
+          // "no lyrics" would be a false negative — say nothing definite
+          // until we actually know one way or the other.
+          Text(
+            provider.lyricsLoading ? 'Cargando letras…' : 'Sin letras disponibles',
+            style: const TextStyle(color: AppColors.border),
           ),
         ],
       );
@@ -77,6 +81,35 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           children: [
+            // In flow (not an overlay) so a long artist/title centered
+            // below it can never be painted over — it used to be a
+            // Positioned(top:0, left:0) sitting on top of that text.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    iconSize: 18,
+                    tooltip: 'Adelantar letra 0.5s',
+                    icon: const Icon(Icons.fast_rewind, color: Colors.grey),
+                    onPressed: () => provider.adjustLyricOffset(-50),
+                  ),
+                  if (provider.currentLyricOffsetSeconds != 0)
+                    Text(
+                      '${provider.currentLyricOffsetSeconds >= 0 ? '+' : ''}'
+                      '${provider.currentLyricOffsetSeconds.toStringAsFixed(1)}s',
+                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    ),
+                  IconButton(
+                    iconSize: 18,
+                    tooltip: 'Atrasar letra 0.5s',
+                    icon: const Icon(Icons.fast_forward, color: Colors.grey),
+                    onPressed: () => provider.adjustLyricOffset(50),
+                  ),
+                ],
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Column(
@@ -107,21 +140,21 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                   duration: const Duration(milliseconds: 300),
                   child: currentLine == null
                       ? const SizedBox.shrink()
-                      : Text.rich(
-                          lyricLineSpan(
-                            currentLine,
-                            kLyricsBaseCurrentFontSize * scale,
-                            isCurrent: true,
-                          ),
+                      : FitLyricText(
                           key: ValueKey(currentIndex),
-                          textAlign: TextAlign.center,
+                          line: currentLine,
+                          fontSize: kLyricsBaseCurrentFontSize * scale,
+                          isCurrent: true,
                         ),
                 ),
               ),
             ),
             if (nextLine != null && nextLine.text.isNotEmpty)
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
@@ -143,54 +176,21 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
       );
     }
 
-    return Stack(
-      children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onDoubleTap: lyrics.isEmpty ? null : _openFullscreen,
-          // Pinch (two fingers) resizes the lyrics. The pointerCount guard
-          // keeps one-finger drags with the TabBarView swipe.
-          onScaleStart: lyrics.isEmpty
-              ? null
-              : (_) => _scaleAtGestureStart = provider.lyricsScale,
-          onScaleUpdate: lyrics.isEmpty
-              ? null
-              : (details) {
-                  if (details.pointerCount < 2) return;
-                  provider.setLyricsScale(_scaleAtGestureStart * details.scale);
-                },
-          child: content,
-        ),
-        if (lyrics.isNotEmpty) ...[
-          Positioned(
-            top: 0,
-            left: 0,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  iconSize: 18,
-                  tooltip: 'Adelantar letra 0.5s',
-                  icon: const Icon(Icons.fast_rewind, color: Colors.grey),
-                  onPressed: () => provider.adjustLyricOffset(-50),
-                ),
-                if (provider.currentLyricOffsetSeconds != 0)
-                  Text(
-                    '${provider.currentLyricOffsetSeconds >= 0 ? '+' : ''}'
-                    '${provider.currentLyricOffsetSeconds.toStringAsFixed(1)}s',
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
-                  ),
-                IconButton(
-                  iconSize: 18,
-                  tooltip: 'Atrasar letra 0.5s',
-                  icon: const Icon(Icons.fast_forward, color: Colors.grey),
-                  onPressed: () => provider.adjustLyricOffset(50),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onDoubleTap: lyrics.isEmpty ? null : _openFullscreen,
+      // Pinch (two fingers) resizes the lyrics. The pointerCount guard
+      // keeps one-finger drags with the TabBarView swipe.
+      onScaleStart: lyrics.isEmpty
+          ? null
+          : (_) => _scaleAtGestureStart = provider.lyricsScale,
+      onScaleUpdate: lyrics.isEmpty
+          ? null
+          : (details) {
+              if (details.pointerCount < 2) return;
+              provider.setLyricsScale(_scaleAtGestureStart * details.scale);
+            },
+      child: content,
     );
   }
 }

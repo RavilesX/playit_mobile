@@ -45,6 +45,7 @@ class PlayerProvider extends ChangeNotifier {
   Uint8List? _coverBytes;
 
   List<LrcLine> _lyrics = [];
+  bool _lyricsLoading = false;
   int _currentLyricIndex = -1;
 
   /// Lets the muted vocals stem through during blank/instrumental lyric
@@ -105,6 +106,13 @@ class PlayerProvider extends ChangeNotifier {
   String get statusText => _statusText;
   Uint8List? get coverBytes => _coverBytes;
   List<LrcLine> get lyrics => _lyrics;
+
+  /// True from the moment a song is selected until its lyrics have been
+  /// read (or confirmed absent). While true, the UI should stay quiet
+  /// instead of claiming "no lyrics" — [lyrics] is empty here too, but
+  /// only because loading hasn't reached the .lrc file yet, not because
+  /// there isn't one.
+  bool get lyricsLoading => _lyricsLoading;
   int get currentLyricIndex => _currentLyricIndex;
   Duration get position => positionNotifier.value;
   Duration get duration => _duration;
@@ -407,6 +415,7 @@ class PlayerProvider extends ChangeNotifier {
 
     _currentIndex = index;
     _lyrics = [];
+    _lyricsLoading = true;
     _currentLyricIndex = -1;
     _coverBytes = null;
     positionNotifier.value = Duration.zero;
@@ -451,7 +460,10 @@ class PlayerProvider extends ChangeNotifier {
       _statusText = 'Error reproduciendo: $e';
       _status = PlaybackStatus.stopped;
     } finally {
-      if (token == _playToken) notifyListeners();
+      if (token == _playToken) {
+        _lyricsLoading = false;
+        notifyListeners();
+      }
     }
   }
 

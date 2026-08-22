@@ -101,9 +101,11 @@ class _RemotePairFormState extends State<RemotePairForm> {
     setState(() => _searching = false);
 
     if (found.isEmpty) {
-      setState(() => _error =
-          'No se encontró ninguna PC. Verifica que PlayIt esté abierto con el '
-          'modo remoto activo, y que ambos estén en la misma red.');
+      setState(
+        () => _error =
+            'No se encontró ninguna PC. Verifica que PlayIt esté abierto con el '
+            'modo remoto activo, y que ambos estén en la misma red.',
+      );
       return;
     }
 
@@ -127,7 +129,10 @@ class _RemotePairFormState extends State<RemotePairForm> {
               onPressed: () => Navigator.of(ctx).pop(desktop),
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.computer, color: AppColors.accentBlue),
+                leading: const Icon(
+                  Icons.computer,
+                  color: AppColors.accentBlue,
+                ),
                 title: Text(
                   desktop.name,
                   style: const TextStyle(color: Colors.white),
@@ -148,7 +153,11 @@ class _RemotePairFormState extends State<RemotePairForm> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
-        const Icon(Icons.settings_remote, size: 56, color: AppColors.accentBlue),
+        const Icon(
+          Icons.settings_remote,
+          size: 56,
+          color: AppColors.accentBlue,
+        ),
         const SizedBox(height: 16),
         const Text(
           'Controlar PlayIt Desktop',

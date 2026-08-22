@@ -34,6 +34,23 @@ class FakeDesktop {
   /// Commands received, in order, as the desktop would see them.
   final List<Map<String, dynamic>> commands = [];
 
+  /// Mezclador. Un desktop viejo (mixer = false) no publica estas claves y
+  /// responde 400 a los comandos, como la whitelist del handler real.
+  bool mixer = true;
+  int masterVolume = 100;
+  Map<String, int> volumes = {
+    'drums': 100,
+    'vocals': 100,
+    'bass': 100,
+    'other': 100,
+  };
+  Map<String, bool> mute = {
+    'drums': false,
+    'vocals': false,
+    'bass': false,
+    'other': false,
+  };
+
   /// Cover bytes per playlist index. A missing entry answers 404, the way a
   /// song folder without cover.png does.
   Map<int, List<int>> covers = {
@@ -100,6 +117,11 @@ class FakeDesktop {
             'repeat': repeat,
             'count': items.length,
             'rev': rev,
+            if (mixer) ...{
+              'master_volume': masterVolume,
+              'volumes': volumes,
+              'mute': mute,
+            },
           });
         case '/api/playlist':
           playlistRequests++;
@@ -124,6 +146,10 @@ class FakeDesktop {
         case '/api/command':
           final decoded = jsonDecode(body) as Map<String, dynamic>;
           commands.add(decoded);
+          if (!mixer && _isMixerCommand(decoded['cmd'])) {
+            _send(request, 400, {'error': 'comando desconocido'});
+            continue;
+          }
           _apply(decoded);
           _send(request, 200, {'ok': true});
         default:
@@ -150,8 +176,17 @@ class FakeDesktop {
       case 'play_index':
         index = cmd['index'] as int;
         playback = 'Activa';
+      case 'set_mute':
+        mute = {...mute, cmd['track'] as String: cmd['value'] == true};
+      case 'set_volume':
+        volumes = {...volumes, cmd['track'] as String: cmd['value'] as int};
+      case 'set_master_volume':
+        masterVolume = cmd['value'] as int;
     }
   }
+
+  static bool _isMixerCommand(Object? cmd) =>
+      cmd == 'set_mute' || cmd == 'set_volume' || cmd == 'set_master_volume';
 
   void _send(HttpRequest request, int status, Map<String, Object> payload) {
     request.response
@@ -181,31 +216,36 @@ void main() {
   tearDown(() => desktop.stop());
 
   group('RemoteClient', () {
-    test('hello valida el emparejamiento y devuelve el nombre de la PC', () async {
-      final client = RemoteClient(desktop.pairing);
-      addTearDown(client.dispose);
+    test(
+      'hello valida el emparejamiento y devuelve el nombre de la PC',
+      () async {
+        final client = RemoteClient(desktop.pairing);
+        addTearDown(client.dispose);
 
-      expect(await client.hello(), 'PC-Prueba');
-      expect(desktop.lastToken, desktop.token);
-    });
+        expect(await client.hello(), 'PC-Prueba');
+        expect(desktop.lastToken, desktop.token);
+      },
+    );
 
-    test('un desktop con protocolo más nuevo se reporta como incompatible',
-        () async {
-      desktop.protocolVersion = kRemoteProtocolVersion + 1;
-      final client = RemoteClient(desktop.pairing);
-      addTearDown(client.dispose);
+    test(
+      'un desktop con protocolo más nuevo se reporta como incompatible',
+      () async {
+        desktop.protocolVersion = kRemoteProtocolVersion + 1;
+        final client = RemoteClient(desktop.pairing);
+        addTearDown(client.dispose);
 
-      expect(
-        client.hello(),
-        throwsA(
-          isA<RemoteException>().having(
-            (e) => e.kind,
-            'kind',
-            RemoteErrorKind.versionIncompatible,
+        expect(
+          client.hello(),
+          throwsA(
+            isA<RemoteException>().having(
+              (e) => e.kind,
+              'kind',
+              RemoteErrorKind.versionIncompatible,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
 
     test('state y playlist se mapean a los modelos', () async {
       final client = RemoteClient(desktop.pairing);
@@ -273,8 +313,11 @@ void main() {
       await expectLater(
         client.cover(0),
         throwsA(
-          isA<RemoteException>()
-              .having((e) => e.kind, 'kind', RemoteErrorKind.noAutorizado),
+          isA<RemoteException>().having(
+            (e) => e.kind,
+            'kind',
+            RemoteErrorKind.noAutorizado,
+          ),
         ),
       );
     });
@@ -303,8 +346,11 @@ void main() {
       await expectLater(
         client.state(),
         throwsA(
-          isA<RemoteException>()
-              .having((e) => e.kind, 'kind', RemoteErrorKind.rechazado),
+          isA<RemoteException>().having(
+            (e) => e.kind,
+            'kind',
+            RemoteErrorKind.rechazado,
+          ),
         ),
       );
 
@@ -312,8 +358,11 @@ void main() {
       await expectLater(
         client.send(RemoteCommand.next),
         throwsA(
-          isA<RemoteException>()
-              .having((e) => e.kind, 'kind', RemoteErrorKind.imposible),
+          isA<RemoteException>().having(
+            (e) => e.kind,
+            'kind',
+            RemoteErrorKind.imposible,
+          ),
         ),
       );
     });
@@ -368,6 +417,41 @@ void main() {
       expect(saved!.token, desktop.token);
       expect(saved.port, desktop.port);
       expect(saved.name, 'PC-Prueba');
+    });
+
+    test(
+      'el filtro de busqueda recorta la lista sin pedir nada a la PC',
+      () async {
+        final provider = RemoteProvider();
+        addTearDown(provider.dispose);
+        await provider.connect(desktop.pairing);
+        final playlistRequestsBefore = desktop.playlistRequests;
+
+        provider.setSearchQuery('schi');
+        expect(provider.visibleTracks.single.song, 'Schism');
+
+        // Acentos y mayusculas no cuentan, igual que en la lista local.
+        provider.setSearchQuery('RUSH');
+        expect(provider.visibleTracks.single.artist, 'Rush');
+
+        provider.setSearchQuery('no existe');
+        expect(provider.visibleTracks, isEmpty);
+
+        provider.setSearchQuery('');
+        expect(provider.visibleTracks, hasLength(2));
+        expect(desktop.playlistRequests, playlistRequestsBefore);
+      },
+    );
+
+    test('desconectar limpia la busqueda', () async {
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      provider.setSearchQuery('schi');
+      await provider.disconnect();
+
+      expect(provider.searchQuery, '');
     });
 
     test('connect fallido deja el error a la vista y no conecta', () async {
@@ -430,7 +514,12 @@ void main() {
 
       // La PC carga otra carpeta: nueva lista, nueva revisión.
       desktop.items = [
-        {'i': 0, 'artist': 'Slayer', 'song': 'Raining Blood', 'duration': '4:16'},
+        {
+          'i': 0,
+          'artist': 'Slayer',
+          'song': 'Raining Blood',
+          'duration': '4:16',
+        },
       ];
       desktop.index = 0;
       desktop.rev = 2;
@@ -553,6 +642,96 @@ void main() {
 
       expect(provider.isConnected, isTrue);
       expect(provider.coverBytes, isNull);
+    });
+
+    test('el mute de una pista llega a la PC', () async {
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      expect(provider.hasMixer, isTrue);
+      await provider.toggleStemMute('vocals');
+
+      expect(desktop.commands.single, {
+        'cmd': 'set_mute',
+        'track': 'vocals',
+        'value': true,
+      });
+      expect(desktop.mute['vocals'], isTrue);
+      expect(provider.isMuted('vocals'), isTrue);
+    });
+
+    test(
+      'arrastrar el volumen manda un solo comando, con el ultimo valor',
+      () async {
+        final provider = RemoteProvider();
+        addTearDown(provider.dispose);
+        await provider.connect(desktop.pairing);
+
+        provider.setVolume('vocals', 40);
+        provider.setVolume('vocals', 55);
+        provider.setVolume('vocals', 60);
+        // El slider muestra el valor del dedo desde el primer pixel.
+        expect(provider.volumeOf('vocals'), 60);
+
+        provider.commitVolume('vocals');
+        await Future.delayed(const Duration(milliseconds: 200));
+
+        expect(desktop.commands, [
+          {'cmd': 'set_volume', 'track': 'vocals', 'value': 60},
+        ]);
+        expect(desktop.volumes['vocals'], 60);
+      },
+    );
+
+    test('el volumen general usa su propio comando', () async {
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      provider.setVolume(kRemoteMasterTrack, 30);
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      expect(desktop.commands.single, {
+        'cmd': 'set_master_volume',
+        'value': 30,
+      });
+      expect(desktop.masterVolume, 30);
+      expect(provider.volumeOf(kRemoteMasterTrack), 30);
+    });
+
+    test('una instantanea vieja no hace saltar el slider', () async {
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      provider.setVolume('bass', 25);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // La PC contesta el comando antes de aplicarlo (§5.2): el sondeo que
+      // ya venia en camino trae todavia el valor anterior.
+      desktop.volumes = {...desktop.volumes, 'bass': 100};
+      final polls = desktop.stateRequests;
+      while (desktop.stateRequests == polls) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+
+      expect(provider.volumeOf('bass'), 25);
+    });
+
+    test('con una PC vieja no se ofrece el mezclador', () async {
+      desktop.mixer = false;
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      expect(provider.hasMixer, isFalse);
+
+      // Y si igual se manda, el 400 no tira la sesion.
+      await provider.toggleStemMute('vocals');
+      expect(provider.isConnected, isTrue);
+      expect(provider.errorMessage, isNotEmpty);
+      expect(provider.isMuted('vocals'), isFalse);
     });
 
     test('forget borra el token guardado', () async {

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/remote_state.dart';
 import '../services/remote_client.dart';
 import '../services/remote_discovery.dart';
+import '../utils/text_fold.dart';
 
 const _prefHost = 'remote_host';
 const _prefPort = 'remote_port';
@@ -30,6 +31,15 @@ class RemoteProvider extends ChangeNotifier {
   /// from before the command and undoes the optimistic update for one frame.
   static const confirmDelay = Duration(milliseconds: 250);
 
+  /// A dragged slider produces dozens of values per second; each one is a
+  /// POST to the PC. Coalescing them for a beat keeps the network quiet
+  /// without the control feeling laggy (PLAN_REMOTO §8.4).
+  static const volumeDebounce = Duration(milliseconds: 100);
+
+  /// How long a sent volume outranks whatever the polling reports. Covers the
+  /// poll already in flight plus the one right after it.
+  static const volumeEchoWindow = Duration(milliseconds: 1200);
+
   /// Wi-Fi drops a packet now and then. Only give up after this many polls in
   /// a row fail, so a single hiccup doesn't tear down a working session.
   static const maxPollFailures = 3;
@@ -40,6 +50,14 @@ class RemoteProvider extends ChangeNotifier {
   PairingInfo? _pairing;
   RemoteClient? _client;
   String _errorMessage = '';
+  String _searchQuery = '';
+
+  /// Volumes the finger has moved but the PC hasn't acknowledged: what the
+  /// sliders show, and what [_flushVolume] sends.
+  final Map<String, int> _pendingVolumes = {};
+  final Map<String, Timer> _volumeTimers = {};
+  final Map<String, int> _volumeEcho = {};
+  DateTime _volumeEchoUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Why the last attempt failed, so [connectToSaved] can tell "the PC moved"
   /// (worth searching the network for) from "the code is wrong" (isn't).
@@ -67,16 +85,54 @@ class RemoteProvider extends ChangeNotifier {
   RemotePlaylist get playlist => _playlist;
   PairingInfo? get pairing => _pairing;
   String get errorMessage => _errorMessage;
+  String get searchQuery => _searchQuery;
+
+  /// Tracks matching the current search query, in playlist order — folded so
+  /// the match is accent/case-insensitive over artist + song, exactly like
+  /// PlayerProvider's local filter. All tracks when the query is empty.
+  ///
+  /// The filter is client-side on purpose: the whole playlist is already
+  /// cached here, so typing costs no network round trip and keeps working
+  /// against desktops that know nothing about searching.
+  List<RemoteTrack> get visibleTracks {
+    if (_searchQuery.isEmpty) return _playlist.items;
+    final needle = foldText(_searchQuery);
+    return [
+      for (final track in _playlist.items)
+        if (foldText(track.artist).contains(needle) ||
+            foldText(track.song).contains(needle))
+          track,
+    ];
+  }
+
+  void setSearchQuery(String query) {
+    if (query == _searchQuery) return;
+    _searchQuery = query;
+    notifyListeners();
+  }
 
   /// Cover of the current song, or null while it loads / when it has none.
   Uint8List? get coverBytes => _coverBytes;
+
+  /// Whether the paired desktop reports the mixer at all. False for older
+  /// desktops, and the screen hides the stem controls rather than showing
+  /// buttons that answer 400.
+  bool get hasMixer => _state.hasMixer;
+
+  /// Volume 0-100 to display for [track] ([kRemoteMasterTrack] for master):
+  /// the value being dragged if there is one, the PC's otherwise.
+  int volumeOf(String track) =>
+      _pendingVolumes[track] ?? _state.volumeOf(track);
+
+  bool isMuted(String track) => _state.isMuted(track);
 
   bool get isConnected => _connection == RemoteConnection.conectado;
   bool get isBusy => _connection == RemoteConnection.conectando;
 
   /// Name of the paired PC, for the app bar.
-  String get desktopName =>
-      _pairing?.name.isNotEmpty == true ? _pairing!.name : (_pairing?.host ?? '');
+  String get desktopName => _pairing?.name.isNotEmpty == true
+      ? _pairing!.name
+      : (_pairing?.host ?? '');
 
   // ── Emparejamiento ────────────────────────────────────────────────────
 
@@ -172,10 +228,12 @@ class RemoteProvider extends ChangeNotifier {
     pausePolling();
     _client?.dispose();
     _client = null;
+    _cancelVolumeTimers();
     _connection = RemoteConnection.desconectado;
     _state = RemoteState.unknown;
     _playlist = RemotePlaylist.empty;
     _errorMessage = '';
+    _searchQuery = '';
     _coverBytes = null;
     _coverKey = null;
     notifyListeners();
@@ -254,7 +312,8 @@ class RemoteProvider extends ChangeNotifier {
     }
   }
 
-  void _applyState(RemoteState next) {
+  void _applyState(RemoteState raw) {
+    final next = _withEcho(raw);
     final changed =
         next.playback != _state.playback ||
         next.index != _state.index ||
@@ -263,10 +322,28 @@ class RemoteProvider extends ChangeNotifier {
         next.artist != _state.artist ||
         next.count != _state.count ||
         next.duration != _state.duration ||
+        next.masterVolume != _state.masterVolume ||
+        !mapEquals(next.volumes, _state.volumes) ||
+        !mapEquals(next.mute, _state.mute) ||
         next.position.inSeconds != _state.position.inSeconds;
     _state = next;
     if (changed) notifyListeners();
     unawaited(_refreshCover());
+  }
+
+  /// Re-applies volumes sent moments ago over a snapshot that may predate
+  /// them, so a slider never rubber-bands back (see [volumeEchoWindow]).
+  RemoteState _withEcho(RemoteState next) {
+    if (_volumeEcho.isEmpty) return next;
+    if (!DateTime.now().isBefore(_volumeEchoUntil)) {
+      _volumeEcho.clear();
+      return next;
+    }
+    var merged = next;
+    for (final entry in _volumeEcho.entries) {
+      merged = merged.withVolume(entry.key, entry.value);
+    }
+    return merged;
   }
 
   /// Downloads the current song's cover when it changed. A new playlist
@@ -319,17 +396,22 @@ class RemoteProvider extends ChangeNotifier {
 
   /// Sends a command, updating the UI immediately with the expected outcome
   /// and letting the confirming poll correct it (see [confirmDelay]).
-  Future<void> send(RemoteCommand cmd, {int? index, bool? value}) async {
+  Future<void> send(
+    RemoteCommand cmd, {
+    int? index,
+    String? track,
+    Object? value,
+  }) async {
     final client = _client;
     if (client == null) return;
     final session = _sessionToken;
 
     final previous = _state;
-    _state = _state.optimistic(cmd, index: index, value: value);
+    _state = _state.optimistic(cmd, index: index, track: track, value: value);
     notifyListeners();
 
     try {
-      await client.send(cmd, index: index, value: value);
+      await client.send(cmd, index: index, track: track, value: value);
       _pollFailures = 0;
       await Future.delayed(confirmDelay);
       if (session != _sessionToken) return;
@@ -357,6 +439,76 @@ class RemoteProvider extends ChangeNotifier {
   Future<void> playIndex(int index) =>
       send(RemoteCommand.playIndex, index: index);
 
+  /// Mutes or unmutes one stem on the PC. A toggle survives the optimistic
+  /// path fine: it is one boolean the confirming poll can correct.
+  Future<void> setStemMute(String track, bool muted) =>
+      send(RemoteCommand.setMute, track: track, value: muted);
+
+  Future<void> toggleStemMute(String track) =>
+      setStemMute(track, !isMuted(track));
+
+  /// Queues a volume change for [track] ([kRemoteMasterTrack] for the master).
+  /// Safe to call on every pixel of a drag: the send is debounced and the
+  /// value shown stays the finger's until the PC catches up.
+  void setVolume(String track, int value) {
+    final clamped = value.clamp(0, 100);
+    if (volumeOf(track) == clamped) return;
+    _pendingVolumes[track] = clamped;
+    notifyListeners();
+    _volumeTimers[track]?.cancel();
+    _volumeTimers[track] = Timer(volumeDebounce, () => _flushVolume(track));
+  }
+
+  /// Sends whatever is pending for [track] right now — for the end of a drag,
+  /// so the last value doesn't wait out the debounce.
+  void commitVolume(String track) {
+    if (!_pendingVolumes.containsKey(track)) return;
+    _volumeTimers[track]?.cancel();
+    unawaited(_flushVolume(track));
+  }
+
+  Future<void> _flushVolume(String track) async {
+    _volumeTimers.remove(track);
+    final value = _pendingVolumes[track];
+    final client = _client;
+    if (value == null || client == null) return;
+    final session = _sessionToken;
+
+    // Hold the sent value over the next few polls: the snapshot in flight was
+    // taken before the command reached the desktop's GUI thread, and applying
+    // it would bounce the slider back under the finger.
+    final previousValue = _state.volumeOf(track);
+    _volumeEcho[track] = value;
+    _volumeEchoUntil = DateTime.now().add(volumeEchoWindow);
+    _state = _state.withVolume(track, value);
+
+    try {
+      if (track == kRemoteMasterTrack) {
+        await client.send(RemoteCommand.setMasterVolume, value: value);
+      } else {
+        await client.send(RemoteCommand.setVolume, track: track, value: value);
+      }
+      if (session != _sessionToken) return;
+      _pollFailures = 0;
+    } on RemoteException catch (e) {
+      if (session != _sessionToken) return;
+      _volumeEcho.remove(track);
+      _state = _state.withVolume(track, previousValue);
+      if (e.kind == RemoteErrorKind.noAutorizado) {
+        _failSession(e.message);
+        return;
+      }
+      _errorMessage = e.message;
+      notifyListeners();
+    } finally {
+      // Only drop the pending value if the finger hasn't moved on since.
+      if (session == _sessionToken && _pendingVolumes[track] == value) {
+        _pendingVolumes.remove(track);
+        notifyListeners();
+      }
+    }
+  }
+
   /// Clears a transient command error without dropping the session.
   void clearError() {
     if (_errorMessage.isEmpty || _connection == RemoteConnection.error) return;
@@ -364,9 +516,19 @@ class RemoteProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _cancelVolumeTimers() {
+    for (final timer in _volumeTimers.values) {
+      timer.cancel();
+    }
+    _volumeTimers.clear();
+    _pendingVolumes.clear();
+    _volumeEcho.clear();
+  }
+
   @override
   void dispose() {
     _sessionToken++;
+    _cancelVolumeTimers();
     pausePolling();
     _client?.dispose();
     _client = null;

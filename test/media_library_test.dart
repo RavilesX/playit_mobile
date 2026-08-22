@@ -42,11 +42,14 @@ void main() {
       expect(result.single.metadata['kbps'], 320);
     });
 
-    test('metadata is empty when the block is absent (old library entries)', () {
-      const raw = '{"A": {"x": {"path": "some/path"}}}';
-      final result = songsFromDataJson(raw);
-      expect(result.single.metadata, isEmpty);
-    });
+    test(
+      'metadata is empty when the block is absent (old library entries)',
+      () {
+        const raw = '{"A": {"x": {"path": "some/path"}}}';
+        final result = songsFromDataJson(raw);
+        expect(result.single.metadata, isEmpty);
+      },
+    );
 
     test('metadata is empty when the song entry is not a map', () {
       const raw = '{"A": {"x": "not a map"}}';

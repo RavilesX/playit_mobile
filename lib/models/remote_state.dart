@@ -10,8 +10,31 @@ import 'dart:convert';
 /// `/api/hello`; a higher one means the phone is the outdated half.
 const kRemoteProtocolVersion = 1;
 
+/// Stems the desktop mixes, in the order both sides show them
+/// (`TRACK_NAMES` on the PC, `stemNames` in audio_engine.dart).
+const kRemoteTrackNames = ['drums', 'vocals', 'bass', 'other'];
+
+/// Pseudo-track used to address the master volume with the same API as the
+/// stems. The desktop never names a stem this way.
+const kRemoteMasterTrack = 'master';
+
 /// Commands the desktop accepts on `/api/command`.
-enum RemoteCommand { playPause, stop, next, prev, repeat, playIndex }
+///
+/// The mixer commands (`setMute`, `setVolume`, `setMasterVolume`) are the
+/// additive extension of PLAN_REMOTO §8: a desktop that doesn't implement
+/// them answers 400, which is why the UI only offers them when the state
+/// snapshot advertises the mixer ([RemoteState.hasMixer]).
+enum RemoteCommand {
+  playPause,
+  stop,
+  next,
+  prev,
+  repeat,
+  playIndex,
+  setMute,
+  setVolume,
+  setMasterVolume,
+}
 
 extension RemoteCommandWire on RemoteCommand {
   String get wire => switch (this) {
@@ -21,6 +44,9 @@ extension RemoteCommandWire on RemoteCommand {
     RemoteCommand.prev => 'prev',
     RemoteCommand.repeat => 'repeat',
     RemoteCommand.playIndex => 'play_index',
+    RemoteCommand.setMute => 'set_mute',
+    RemoteCommand.setVolume => 'set_volume',
+    RemoteCommand.setMasterVolume => 'set_master_volume',
   };
 }
 
@@ -64,9 +90,7 @@ class PairingInfo {
     try {
       decoded = jsonDecode(raw.trim());
     } on FormatException {
-      throw const RemotePairingException(
-        'El código no es de PlayIt Desktop.',
-      );
+      throw const RemotePairingException('El código no es de PlayIt Desktop.');
     }
     if (decoded is! Map<String, dynamic>) {
       throw const RemotePairingException('El código no es de PlayIt Desktop.');
@@ -256,6 +280,20 @@ class RemoteState {
   final bool repeat;
   final int count;
 
+  /// Master volume, 0-100. Integers on the wire on purpose (PLAN_REMOTO
+  /// §8.3): they match the desktop's sliders and survive JSON without float
+  /// rounding. 100 when the PC doesn't report it.
+  final int masterVolume;
+
+  /// Per-stem volume 0-100 and mute flags, keyed by [kRemoteTrackNames].
+  final Map<String, int> volumes;
+  final Map<String, bool> mute;
+
+  /// Whether the PC reported any mixer field at all. False means an older
+  /// desktop that would answer 400 to `set_volume` / `set_mute`, so the UI
+  /// hides those controls instead of offering buttons that fail.
+  final bool hasMixer;
+
   /// Playlist revision. When it differs from the cached playlist's, the list
   /// changed on the PC (folder loaded, song separated, re-sorted) and has to
   /// be downloaded again.
@@ -271,6 +309,10 @@ class RemoteState {
     required this.repeat,
     required this.count,
     required this.rev,
+    this.masterVolume = 100,
+    this.volumes = const {},
+    this.mute = const {},
+    this.hasMixer = false,
   });
 
   static const unknown = RemoteState(
@@ -295,7 +337,31 @@ class RemoteState {
         ? v.toInt()
         : fallback;
 
+    Map<String, int> intMap(Object? raw) => raw is! Map
+        ? const {}
+        : {
+            for (final name in kRemoteTrackNames)
+              if (raw[name] is num)
+                name: (raw[name] as num).toInt().clamp(0, 100),
+          };
+
+    final volumes = intMap(json['volumes']);
+    final mute = json['mute'] is! Map
+        ? const <String, bool>{}
+        : {
+            for (final name in kRemoteTrackNames)
+              if ((json['mute'] as Map).containsKey(name))
+                name: (json['mute'] as Map)[name] == true,
+          };
+
     return RemoteState(
+      hasMixer:
+          json.containsKey('volumes') ||
+          json.containsKey('mute') ||
+          json.containsKey('master_volume'),
+      masterVolume: asInt(json['master_volume'], 100).clamp(0, 100),
+      volumes: volumes,
+      mute: mute,
       playback: _playbackFromWire(json['state']),
       index: asInt(json['index'], -1),
       artist: json['artist'] is String ? json['artist'] as String : '',
@@ -314,6 +380,25 @@ class RemoteState {
 
   String get displayName => hasSong ? '$artist - $song' : '';
 
+  /// Volume 0-100 of one stem, or of the master when [track] is
+  /// [kRemoteMasterTrack]. Unknown stems read as 100, the same "nothing is
+  /// turned down" default the desktop starts from.
+  int volumeOf(String track) =>
+      track == kRemoteMasterTrack ? masterVolume : volumes[track] ?? 100;
+
+  bool isMuted(String track) => mute[track] ?? false;
+
+  /// Copy with one volume replaced, addressing master and stems alike.
+  RemoteState withVolume(String track, int value) {
+    final clamped = value.clamp(0, 100);
+    return track == kRemoteMasterTrack
+        ? copyWith(masterVolume: clamped)
+        : copyWith(volumes: {...volumes, track: clamped});
+  }
+
+  RemoteState withMute(String track, bool muted) =>
+      copyWith(mute: {...mute, track: muted});
+
   String get playbackLabel => switch (playback) {
     RemotePlayback.activa => 'Reproduciendo',
     RemotePlayback.pausada => 'En pausa',
@@ -324,26 +409,38 @@ class RemoteState {
   /// confirms (see RemoteProvider.send). Guessing wrong is harmless — the
   /// confirming poll overwrites it a few hundred ms later — but guessing
   /// right is what makes the buttons feel connected instead of broken.
-  RemoteState optimistic(RemoteCommand cmd, {int? index, bool? value}) =>
-      switch (cmd) {
-        RemoteCommand.playPause => copyWith(
-          playback: isPlaying ? RemotePlayback.pausada : RemotePlayback.activa,
-        ),
-        RemoteCommand.stop => copyWith(
-          playback: RemotePlayback.detenido,
-          position: Duration.zero,
-        ),
-        RemoteCommand.repeat => copyWith(repeat: value ?? !repeat),
-        RemoteCommand.playIndex => copyWith(
-          playback: RemotePlayback.activa,
-          index: index ?? this.index,
-          position: Duration.zero,
-        ),
-        // prev/next change the song: which one is the desktop's business
-        // (repeat mode, wrap-around), so only the position is safe to guess.
-        RemoteCommand.next ||
-        RemoteCommand.prev => copyWith(position: Duration.zero),
-      };
+  RemoteState optimistic(
+    RemoteCommand cmd, {
+    int? index,
+    String? track,
+    Object? value,
+  }) => switch (cmd) {
+    RemoteCommand.playPause => copyWith(
+      playback: isPlaying ? RemotePlayback.pausada : RemotePlayback.activa,
+    ),
+    RemoteCommand.stop => copyWith(
+      playback: RemotePlayback.detenido,
+      position: Duration.zero,
+    ),
+    RemoteCommand.repeat => copyWith(repeat: value is bool ? value : !repeat),
+    RemoteCommand.setMute =>
+      track == null
+          ? this
+          : withMute(track, value is bool ? value : !isMuted(track)),
+    RemoteCommand.setVolume =>
+      track == null || value is! int ? this : withVolume(track, value),
+    RemoteCommand.setMasterVolume =>
+      value is! int ? this : withVolume(kRemoteMasterTrack, value),
+    RemoteCommand.playIndex => copyWith(
+      playback: RemotePlayback.activa,
+      index: index ?? this.index,
+      position: Duration.zero,
+    ),
+    // prev/next change the song: which one is the desktop's business
+    // (repeat mode, wrap-around), so only the position is safe to guess.
+    RemoteCommand.next ||
+    RemoteCommand.prev => copyWith(position: Duration.zero),
+  };
 
   RemoteState copyWith({
     RemotePlayback? playback,
@@ -355,6 +452,9 @@ class RemoteState {
     bool? repeat,
     int? count,
     int? rev,
+    int? masterVolume,
+    Map<String, int>? volumes,
+    Map<String, bool>? mute,
   }) => RemoteState(
     playback: playback ?? this.playback,
     index: index ?? this.index,
@@ -365,5 +465,9 @@ class RemoteState {
     repeat: repeat ?? this.repeat,
     count: count ?? this.count,
     rev: rev ?? this.rev,
+    masterVolume: masterVolume ?? this.masterVolume,
+    volumes: volumes ?? this.volumes,
+    mute: mute ?? this.mute,
+    hasMixer: hasMixer,
   );
 }

@@ -11,6 +11,7 @@ void showSongInfoSheet(BuildContext context, Song song) {
   showModalBottomSheet(
     context: context,
     backgroundColor: AppColors.surface,
+    isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -25,46 +26,67 @@ class _SongInfoSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+      child: ConstrainedBox(
+        // Landscape phones and split-screen leave little vertical room;
+        // scroll instead of overflowing once the content doesn't fit.
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Información',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 16),
+              const Text(
+                'Información',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _InfoRow(label: 'Artista', value: song.artist, copyValue: song.artist),
-            _InfoRow(label: 'Canción', value: song.title, copyValue: song.title),
-            _InfoRow(
-              label: 'Artista - Canción',
-              value: song.displayName,
-              copyValue: song.displayName,
-            ),
-            const Divider(color: AppColors.border, height: 24),
-            _InfoRow(label: 'Álbum', value: song.metadataOrUnknown('album')),
-            _InfoRow(label: 'Año', value: song.metadataOrUnknown('anio')),
-            _InfoRow(label: 'Género', value: song.metadataOrUnknown('genero')),
-            _InfoRow(label: 'Formato', value: song.metadataOrUnknown('formato')),
-            _InfoRow(label: 'Kbps', value: song.metadataOrUnknown('kbps')),
-          ],
+              const SizedBox(height: 12),
+              _InfoRow(
+                label: 'Artista',
+                value: song.artist,
+                copyValue: song.artist,
+              ),
+              _InfoRow(
+                label: 'Canción',
+                value: song.title,
+                copyValue: song.title,
+              ),
+              _InfoRow(
+                label: 'Artista - Canción',
+                value: song.displayName,
+                copyValue: song.displayName,
+              ),
+              const Divider(color: AppColors.border, height: 24),
+              _InfoRow(label: 'Álbum', value: song.metadataOrUnknown('album')),
+              _InfoRow(label: 'Año', value: song.metadataOrUnknown('anio')),
+              _InfoRow(
+                label: 'Género',
+                value: song.metadataOrUnknown('genero'),
+              ),
+              _InfoRow(
+                label: 'Formato',
+                value: song.metadataOrUnknown('formato'),
+              ),
+              _InfoRow(label: 'Kbps', value: song.metadataOrUnknown('kbps')),
+            ],
+          ),
         ),
       ),
     );

@@ -5,7 +5,10 @@ void main() {
   group('formatSongDuration', () {
     test('minutes are unpadded, seconds are zero-padded', () {
       expect(formatSongDuration(const Duration(seconds: 5)), '0:05');
-      expect(formatSongDuration(const Duration(minutes: 3, seconds: 45)), '3:45');
+      expect(
+        formatSongDuration(const Duration(minutes: 3, seconds: 45)),
+        '3:45',
+      );
       expect(
         formatSongDuration(const Duration(minutes: 12, seconds: 3)),
         '12:03',

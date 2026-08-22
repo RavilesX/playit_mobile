@@ -15,6 +15,11 @@ class TransportControls extends StatelessWidget {
   final VoidCallback? onSeekBack;
   final VoidCallback? onSeekForward;
 
+  /// Drops the ±5s seek buttons entirely (not just disables them) when the
+  /// row doesn't have room to show every control at a legible size — see
+  /// _TransportRow in player_screen.dart, which decides this.
+  final bool showSeek;
+
   const TransportControls({
     super.key,
     required this.status,
@@ -28,6 +33,7 @@ class TransportControls extends StatelessWidget {
     required this.onRepeatToggle,
     this.onSeekBack,
     this.onSeekForward,
+    this.showSeek = true,
   });
 
   @override
@@ -45,13 +51,15 @@ class TransportControls extends StatelessWidget {
           enabled: active,
           onTap: onPrev,
         ),
-        const SizedBox(width: 8),
-        _TransportIconBtn(
-          icon: Icons.replay_5,
-          size: 34,
-          enabled: canSeek,
-          onTap: onSeekBack,
-        ),
+        if (showSeek) ...[
+          const SizedBox(width: 8),
+          _TransportIconBtn(
+            icon: Icons.replay_5,
+            size: 34,
+            enabled: canSeek,
+            onTap: onSeekBack,
+          ),
+        ],
         const SizedBox(width: 8),
         _TransportBtn(
           asset: 'assets/icons/play.png',
@@ -60,13 +68,15 @@ class TransportControls extends StatelessWidget {
           onTap: onPlayPause,
           highlight: true,
         ),
-        const SizedBox(width: 8),
-        _TransportIconBtn(
-          icon: Icons.forward_5,
-          size: 34,
-          enabled: canSeek,
-          onTap: onSeekForward,
-        ),
+        if (showSeek) ...[
+          const SizedBox(width: 8),
+          _TransportIconBtn(
+            icon: Icons.forward_5,
+            size: 34,
+            enabled: canSeek,
+            onTap: onSeekForward,
+          ),
+        ],
         const SizedBox(width: 8),
         _TransportBtn(
           asset: 'assets/icons/next.png',
@@ -126,9 +136,7 @@ class _TransportIconBtn extends StatelessWidget {
         child: Icon(
           icon,
           size: size * 0.55,
-          color: enabled
-              ? Colors.white
-              : Colors.grey.withValues(alpha: 0.4),
+          color: enabled ? Colors.white : Colors.grey.withValues(alpha: 0.4),
         ),
       ),
     );

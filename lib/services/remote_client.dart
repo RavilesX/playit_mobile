@@ -79,10 +79,19 @@ class RemoteClient {
   Future<RemotePlaylist> playlist() async =>
       RemotePlaylist.fromJson(await _get('/api/playlist'));
 
-  Future<void> send(RemoteCommand cmd, {int? index, bool? value}) async {
+  /// Sends one command. [value] is a bool for `repeat` / `set_mute` and an
+  /// int 0-100 for the volume commands (PLAN_REMOTO §8.3); [track] names the
+  /// stem the mixer commands act on.
+  Future<void> send(
+    RemoteCommand cmd, {
+    int? index,
+    String? track,
+    Object? value,
+  }) async {
     await _post('/api/command', {
       'cmd': cmd.wire,
       'index': ?index,
+      'track': ?track,
       'value': ?value,
     });
   }

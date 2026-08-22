@@ -65,7 +65,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
           body: LayoutBuilder(
             builder: (ctx, constraints) {
               final isLandscape = constraints.maxWidth > constraints.maxHeight;
-              final isTablet = constraints.maxWidth > 600;
+              // shortestSide, not the body's width, so a phone in
+              // landscape (e.g. 640×360) isn't misclassified as a tablet —
+              // its width alone can exceed 600 while it's still a phone.
+              // It still gets _WideLayout below via isLandscape, just
+              // without the tablet's permanent sidebar (which would
+              // otherwise duplicate the playlist already reachable via
+              // the drawer).
+              final isTablet = screen.shortestSide > 600;
 
               if (isTablet || isLandscape) {
                 return _WideLayout(isTablet: isTablet);
@@ -406,36 +413,58 @@ class _ProgressSection extends StatelessWidget {
 }
 
 class _TransportRow extends StatelessWidget {
+  // Mirrors TransportControls' own button sizes/gaps (40+34+70+34+40+40+40
+  // icons, 8dp gaps) plus the dial and its leading gap — there's no cheap
+  // way to ask a widget its natural size before it's laid out.
+  static const _fullRowWidth = 346.0 + 16.0 + 80.0;
+
+  /// Below this fraction of natural size, the standard 40dp buttons would
+  /// shrink under the ~34dp the app already uses for the seek icons
+  /// elsewhere — drop the seek buttons (least essential; scrubbing is
+  /// still available on the progress bar) to recover legibility for the
+  /// rest instead of shrinking everything further.
+  static const _seekScaleFloor = 0.70;
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PlayerProvider>();
-    // Scales the whole row down on narrow screens instead of overflowing
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TransportControls(
-            status: provider.status,
-            hasPlaylist: provider.playlist.isNotEmpty,
-            hasCurrentSong: provider.currentIndex >= 0,
-            repeatMode: provider.repeatMode,
-            onPrev: provider.playPrevious,
-            onPlayPause: provider.togglePlayPause,
-            onNext: provider.playNext,
-            onStop: provider.stop,
-            onRepeatToggle: provider.toggleRepeat,
-            onSeekBack: () => provider.seekBy(const Duration(seconds: -5)),
-            onSeekForward: () => provider.seekBy(const Duration(seconds: 5)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showSeek =
+            constraints.maxWidth >= _fullRowWidth * _seekScaleFloor;
+        // Scales the whole row down on narrow screens instead of
+        // overflowing — showSeek above keeps this near 1.0 on most phones.
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TransportControls(
+                status: provider.status,
+                hasPlaylist: provider.playlist.isNotEmpty,
+                hasCurrentSong: provider.currentIndex >= 0,
+                repeatMode: provider.repeatMode,
+                onPrev: provider.playPrevious,
+                onPlayPause: provider.togglePlayPause,
+                onNext: provider.playNext,
+                onStop: provider.stop,
+                onRepeatToggle: provider.toggleRepeat,
+                onSeekBack: () =>
+                    provider.seekBy(const Duration(seconds: -5)),
+                onSeekForward: () =>
+                    provider.seekBy(const Duration(seconds: 5)),
+                showSeek: showSeek,
+              ),
+              const SizedBox(width: 16),
+              VolumeDial(
+                value: provider.engine.masterVolume,
+                onChanged: provider.setMasterVolume,
+                size: 80,
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          VolumeDial(
-            value: provider.engine.masterVolume,
-            onChanged: provider.setMasterVolume,
-            size: 80,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -97,6 +97,7 @@ Future<void> showUpdateAvailableDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: Colors.black,
+      scrollable: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: AppColors.accentPurple),
@@ -194,6 +195,7 @@ class _AboutDialogState extends State<_AboutDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: Colors.black,
+      scrollable: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: AppColors.accentPurple),
@@ -202,9 +204,12 @@ class _AboutDialogState extends State<_AboutDialog> {
         children: [
           Image.asset('assets/icons/main_icon.png', width: 32, height: 32),
           const SizedBox(width: 12),
-          const Text(
-            'Play It',
-            style: TextStyle(color: AppColors.accentBlue),
+          const Expanded(
+            child: Text(
+              'Play It',
+              style: TextStyle(color: AppColors.accentBlue),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

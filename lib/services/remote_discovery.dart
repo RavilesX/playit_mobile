@@ -48,7 +48,8 @@ class DiscoveredDesktop {
     // The address the datagram actually came from wins over the one the PC
     // reports: a multi-homed desktop can easily name an interface the phone
     // can't reach.
-    final host = senderHost ?? (decoded['h'] is String ? decoded['h'] as String : '');
+    final host =
+        senderHost ?? (decoded['h'] is String ? decoded['h'] as String : '');
     if (host.isEmpty) return null;
 
     return DiscoveredDesktop(

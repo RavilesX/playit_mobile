@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/player_provider.dart';
+import 'search_field.dart';
 import 'song_info_sheet.dart';
 
 class PlaylistDrawer extends StatelessWidget {
@@ -11,51 +12,61 @@ class PlaylistDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.black.withValues(alpha: 0.85),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 48, 16, 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.border)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.queue_music, color: AppColors.accentBlue),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Playlist',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.folder_open,
+      // The Drawer (portrait) and the tablet sidebar (SizedBox in
+      // _WideLayout) both hand this content the full screen height with no
+      // inset of their own — a fixed 48dp top padding used to stand in for
+      // the status bar, which over- or under-shoots depending on the
+      // device's actual cutout/status-bar height.
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.queue_music,
                         color: AppColors.accentBlue,
                       ),
-                      onPressed: () {
-                        context.read<PlayerProvider>().pickLibraryFolder();
-                      },
-                      tooltip: 'Seleccionar carpeta',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const _SearchField(),
-                const SizedBox(height: 8),
-                const _SortToggle(),
-              ],
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Playlist',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.folder_open,
+                          color: AppColors.accentBlue,
+                        ),
+                        onPressed: () {
+                          context.read<PlayerProvider>().pickLibraryFolder();
+                        },
+                        tooltip: 'Seleccionar carpeta',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const _SearchField(),
+                  const SizedBox(height: 8),
+                  const _SortToggle(),
+                ],
+              ),
             ),
-          ),
-          Expanded(child: _PlaylistList()),
-        ],
+            Expanded(child: _PlaylistList()),
+          ],
+        ),
       ),
     );
   }
@@ -66,37 +77,9 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<PlayerProvider>();
-    return TextField(
-      style: const TextStyle(color: Colors.white, fontSize: 14),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: 'Buscar canción...',
-        hintStyle: const TextStyle(color: AppColors.border),
-        prefixIcon: const Icon(
-          Icons.search,
-          color: AppColors.border,
-          size: 20,
-        ),
-        suffixIcon: provider.searchQuery.isEmpty
-            ? null
-            : IconButton(
-                icon: const Icon(
-                  Icons.clear,
-                  color: AppColors.border,
-                  size: 18,
-                ),
-                onPressed: () =>
-                    context.read<PlayerProvider>().setSearchQuery(''),
-              ),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.05),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
-      ),
+    final query = context.select<PlayerProvider, String>((p) => p.searchQuery);
+    return SearchField(
+      query: query,
       onChanged: (v) => context.read<PlayerProvider>().setSearchQuery(v),
     );
   }

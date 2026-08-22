@@ -102,10 +102,7 @@ void main() {
         isNull,
       );
       expect(DiscoveredDesktop.tryParse('{"v":1,"h":"1.2.3.4"}'), isNull);
-      expect(
-        DiscoveredDesktop.tryParse('{"v":1,"h":"1.2.3.4","p":0}'),
-        isNull,
-      );
+      expect(DiscoveredDesktop.tryParse('{"v":1,"h":"1.2.3.4","p":0}'), isNull);
       expect(DiscoveredDesktop.tryParse('{"v":1,"p":8770}'), isNull);
     });
 
@@ -149,18 +146,20 @@ void main() {
 
     tearDown(() => responder.close());
 
-    test('la PC recibe la sonda y su respuesta se convierte en un equipo',
-        () async {
-      await responder.start(reply: null);
+    test(
+      'la PC recibe la sonda y su respuesta se convierte en un equipo',
+      () async {
+        await responder.start(reply: null);
 
-      final found = await probeLoopback(responder.port);
+        final found = await probeLoopback(responder.port);
 
-      expect(responder.probesSeen, greaterThan(0));
-      expect(responder.lastProbe, kDiscoveryProbe);
-      expect(found, hasLength(1));
-      expect(found.single.host, '127.0.0.1');
-      expect(found.single.name, 'PC-Prueba');
-    });
+        expect(responder.probesSeen, greaterThan(0));
+        expect(responder.lastProbe, kDiscoveryProbe);
+        expect(found, hasLength(1));
+        expect(found.single.host, '127.0.0.1');
+        expect(found.single.name, 'PC-Prueba');
+      },
+    );
 
     test('una PC callada no aparece', () async {
       await responder.start(reply: null);
@@ -176,14 +175,16 @@ void main() {
     });
   });
 
-  test('discoverDesktops sin nadie en la red devuelve vacío, no lanza',
-      () async {
-    // Puerto de descubrimiento improbable: nada debería contestar. Lo que se
-    // prueba es que un barrido sin resultados es un caso normal.
-    final found = await discoverDesktops(
-      timeout: const Duration(milliseconds: 400),
-      port: 59321,
-    );
-    expect(found, isEmpty);
-  });
+  test(
+    'discoverDesktops sin nadie en la red devuelve vacío, no lanza',
+    () async {
+      // Puerto de descubrimiento improbable: nada debería contestar. Lo que se
+      // prueba es que un barrido sin resultados es un caso normal.
+      final found = await discoverDesktops(
+        timeout: const Duration(milliseconds: 400),
+        port: 59321,
+      );
+      expect(found, isEmpty);
+    },
+  );
 }

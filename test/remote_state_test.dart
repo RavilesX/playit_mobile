@@ -67,8 +67,10 @@ void main() {
     });
 
     test('usa el puerto por defecto cuando no se escribe', () {
-      expect(PairingInfo.fromManual('192.168.1.42', 'abcd').port,
-          kDefaultRemotePort);
+      expect(
+        PairingInfo.fromManual('192.168.1.42', 'abcd').port,
+        kDefaultRemotePort,
+      );
     });
 
     test('limpia los espacios del código en grupos de cuatro', () {
@@ -79,14 +81,22 @@ void main() {
     });
 
     test('rechaza campos vacíos y puertos inválidos', () {
-      expect(() => PairingInfo.fromManual('', 'ab'),
-          throwsA(isA<RemotePairingException>()));
-      expect(() => PairingInfo.fromManual('1.2.3.4', '   '),
-          throwsA(isA<RemotePairingException>()));
-      expect(() => PairingInfo.fromManual('1.2.3.4:0', 'ab'),
-          throwsA(isA<RemotePairingException>()));
-      expect(() => PairingInfo.fromManual('1.2.3.4:puerto', 'ab'),
-          throwsA(isA<RemotePairingException>()));
+      expect(
+        () => PairingInfo.fromManual('', 'ab'),
+        throwsA(isA<RemotePairingException>()),
+      );
+      expect(
+        () => PairingInfo.fromManual('1.2.3.4', '   '),
+        throwsA(isA<RemotePairingException>()),
+      );
+      expect(
+        () => PairingInfo.fromManual('1.2.3.4:0', 'ab'),
+        throwsA(isA<RemotePairingException>()),
+      );
+      expect(
+        () => PairingInfo.fromManual('1.2.3.4:puerto', 'ab'),
+        throwsA(isA<RemotePairingException>()),
+      );
     });
 
     test('prettyToken agrupa de a cuatro', () {
@@ -187,8 +197,10 @@ void main() {
     });
 
     test('repeat usa el valor mandado', () {
-      expect(playing.optimistic(RemoteCommand.repeat, value: true).repeat,
-          isTrue);
+      expect(
+        playing.optimistic(RemoteCommand.repeat, value: true).repeat,
+        isTrue,
+      );
       expect(playing.optimistic(RemoteCommand.repeat).repeat, isTrue);
     });
 
@@ -198,6 +210,89 @@ void main() {
       // Cuál sigue depende del modo repetir del desktop: no se inventa.
       expect(next.index, playing.index);
       expect(next.song, playing.song);
+    });
+  });
+
+  group('RemoteState mezclador (PLAN_REMOTO §8)', () {
+    Map<String, dynamic> base() => {
+      'v': 1,
+      'state': 'Activa',
+      'index': 0,
+      'artist': 'Rush',
+      'song': 'YYZ',
+      'rev': 3,
+    };
+
+    test('una PC vieja no trae mezclador y todo suena al 100', () {
+      final state = RemoteState.fromJson(base());
+      expect(state.hasMixer, isFalse);
+      expect(state.masterVolume, 100);
+      expect(state.volumeOf('vocals'), 100);
+      expect(state.isMuted('vocals'), isFalse);
+    });
+
+    test('lee volumenes y mutes de una PC nueva', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'master_volume': 80,
+        'volumes': {'drums': 100, 'vocals': 60, 'bass': 90, 'other': 100},
+        'mute': {'drums': false, 'vocals': true, 'bass': false, 'other': false},
+      });
+      expect(state.hasMixer, isTrue);
+      expect(state.masterVolume, 80);
+      expect(state.volumeOf('vocals'), 60);
+      expect(state.volumeOf(kRemoteMasterTrack), 80);
+      expect(state.isMuted('vocals'), isTrue);
+      expect(state.isMuted('drums'), isFalse);
+    });
+
+    test('valores fuera de rango o mal tipados no rompen nada', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'master_volume': 250,
+        'volumes': {'drums': 'mucho', 'vocals': -20},
+        'mute': {'drums': 'si'},
+      });
+      expect(state.hasMixer, isTrue);
+      expect(state.masterVolume, 100);
+      expect(state.volumeOf('drums'), 100); // clave basura → default
+      expect(state.volumeOf('vocals'), 0);
+      expect(state.isMuted('drums'), isFalse); // 'si' no es true
+    });
+
+    test('withVolume distingue master de pistas', () {
+      final state = RemoteState.unknown
+          .withVolume(kRemoteMasterTrack, 40)
+          .withVolume('bass', 70);
+      expect(state.masterVolume, 40);
+      expect(state.volumeOf('bass'), 70);
+      expect(state.volumeOf('drums'), 100);
+    });
+
+    test('el mute optimista se ve antes de que conteste la PC', () {
+      final muted = RemoteState.unknown.optimistic(
+        RemoteCommand.setMute,
+        track: 'vocals',
+        value: true,
+      );
+      expect(muted.isMuted('vocals'), isTrue);
+
+      final back = muted.optimistic(RemoteCommand.setMute, track: 'vocals');
+      expect(back.isMuted('vocals'), isFalse);
+    });
+
+    test('los comandos de volumen llevan el valor al estado', () {
+      final state = RemoteState.unknown
+          .optimistic(RemoteCommand.setMasterVolume, value: 55)
+          .optimistic(RemoteCommand.setVolume, track: 'other', value: 15);
+      expect(state.masterVolume, 55);
+      expect(state.volumeOf('other'), 15);
+    });
+
+    test('el nombre en el cable es el que espera el desktop', () {
+      expect(RemoteCommand.setMute.wire, 'set_mute');
+      expect(RemoteCommand.setVolume.wire, 'set_volume');
+      expect(RemoteCommand.setMasterVolume.wire, 'set_master_volume');
     });
   });
 
@@ -247,11 +342,7 @@ void main() {
     const valid = '{"v":1,"h":"192.168.1.42","p":8770,"t":"9f2c","n":"PC"}';
 
     test('toma el emparejamiento aunque venga junto a otros códigos', () {
-      final info = pairingFromBarcodes([
-        'https://otracosa.com',
-        null,
-        valid,
-      ]);
+      final info = pairingFromBarcodes(['https://otracosa.com', null, valid]);
       expect(info.host, '192.168.1.42');
       expect(info.name, 'PC');
     });
