@@ -11,7 +11,7 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Desktop-informational)
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 </div>
@@ -51,6 +51,7 @@ Pensado para ensayar: estás con el instrumento, termina la canción, y en vez d
 - Activar o desactivar la repetición.
 - Ver la playlist completa del PC y **tocar cualquier canción para reproducirla**.
 - Ver qué está sonando, con su carátula y el tiempo transcurrido.
+- **Silenciar cada stem del PC y ajustar su volumen** (batería, voz, bajo, otros) más el volumen general, igual que en el propio PC — requiere una versión de PlayIt Desktop que sirva estos datos; con una más antigua, los controles simplemente no aparecen.
 
 **Cómo funciona por dentro**
 
@@ -179,6 +180,7 @@ Built for rehearsing: you're holding an instrument, the song ends, and instead o
 - Toggle repeat.
 - Browse the PC's full playlist and **tap any song to play it**.
 - See what's playing, with its cover art and elapsed time.
+- **Mute each PC stem and adjust its volume** (drums, vocals, bass, other) plus the master volume, same as on the PC itself — requires a PlayIt Desktop build that serves this data; on an older one, the controls simply don't show up.
 
 **How it works**
 
