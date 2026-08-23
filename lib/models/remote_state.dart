@@ -34,6 +34,7 @@ enum RemoteCommand {
   setMute,
   setVolume,
   setMasterVolume,
+  setAutoUnmute,
 }
 
 extension RemoteCommandWire on RemoteCommand {
@@ -47,6 +48,7 @@ extension RemoteCommandWire on RemoteCommand {
     RemoteCommand.setMute => 'set_mute',
     RemoteCommand.setVolume => 'set_volume',
     RemoteCommand.setMasterVolume => 'set_master_volume',
+    RemoteCommand.setAutoUnmute => 'set_auto_unmute',
   };
 }
 
@@ -289,6 +291,12 @@ class RemoteState {
   final Map<String, int> volumes;
   final Map<String, bool> mute;
 
+  /// Whether the desktop's vocals auto-unmute (fade the voice back in on
+  /// blank/instrumental lyric lines) is on. Only meaningful when [hasMixer]
+  /// is true — an older desktop that doesn't report it defaults to true,
+  /// its own checkbox's default.
+  final bool autoUnmuteEnabled;
+
   /// Whether the PC reported any mixer field at all. False means an older
   /// desktop that would answer 400 to `set_volume` / `set_mute`, so the UI
   /// hides those controls instead of offering buttons that fail.
@@ -312,6 +320,7 @@ class RemoteState {
     this.masterVolume = 100,
     this.volumes = const {},
     this.mute = const {},
+    this.autoUnmuteEnabled = true,
     this.hasMixer = false,
   });
 
@@ -362,6 +371,9 @@ class RemoteState {
       masterVolume: asInt(json['master_volume'], 100).clamp(0, 100),
       volumes: volumes,
       mute: mute,
+      autoUnmuteEnabled: json.containsKey('auto_unmute')
+          ? json['auto_unmute'] == true
+          : true,
       playback: _playbackFromWire(json['state']),
       index: asInt(json['index'], -1),
       artist: json['artist'] is String ? json['artist'] as String : '',
@@ -431,6 +443,9 @@ class RemoteState {
       track == null || value is! int ? this : withVolume(track, value),
     RemoteCommand.setMasterVolume =>
       value is! int ? this : withVolume(kRemoteMasterTrack, value),
+    RemoteCommand.setAutoUnmute => copyWith(
+      autoUnmuteEnabled: value is bool ? value : !autoUnmuteEnabled,
+    ),
     RemoteCommand.playIndex => copyWith(
       playback: RemotePlayback.activa,
       index: index ?? this.index,
@@ -455,6 +470,7 @@ class RemoteState {
     int? masterVolume,
     Map<String, int>? volumes,
     Map<String, bool>? mute,
+    bool? autoUnmuteEnabled,
   }) => RemoteState(
     playback: playback ?? this.playback,
     index: index ?? this.index,
@@ -468,6 +484,7 @@ class RemoteState {
     masterVolume: masterVolume ?? this.masterVolume,
     volumes: volumes ?? this.volumes,
     mute: mute ?? this.mute,
+    autoUnmuteEnabled: autoUnmuteEnabled ?? this.autoUnmuteEnabled,
     hasMixer: hasMixer,
   );
 }

@@ -11,6 +11,7 @@ import '../widgets/playlist_drawer.dart';
 import '../widgets/progress_bar_widget.dart';
 import '../widgets/spectrum_visualizer.dart';
 import '../widgets/stem_control.dart';
+import '../widgets/stem_mixer_sheet.dart';
 import '../services/update_checker.dart';
 import '../widgets/transport_controls.dart';
 import '../widgets/update_dialogs.dart';
@@ -62,24 +63,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             width: math.min(300, screen.width * 0.85),
             child: const PlaylistDrawer(),
           ),
-          body: LayoutBuilder(
-            builder: (ctx, constraints) {
-              final isLandscape = constraints.maxWidth > constraints.maxHeight;
-              // shortestSide, not the body's width, so a phone in
-              // landscape (e.g. 640×360) isn't misclassified as a tablet —
-              // its width alone can exceed 600 while it's still a phone.
-              // It still gets _WideLayout below via isLandscape, just
-              // without the tablet's permanent sidebar (which would
-              // otherwise duplicate the playlist already reachable via
-              // the drawer).
-              final isTablet = screen.shortestSide > 600;
-
-              if (isTablet || isLandscape) {
-                return _WideLayout(isTablet: isTablet);
-              }
-              return const _PortraitLayout();
-            },
-          ),
+          body: const _PlayerLayout(),
         ),
       ],
     );
@@ -87,10 +71,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Portrait layout (phone, vertical)
+// Player layout — cover/lyrics on top, stem/transport controls stacked
+// below at full width, on phone and tablet alike, portrait or landscape.
 // ────────────────────────────────────────────────────────────────────────────
-class _PortraitLayout extends StatelessWidget {
-  const _PortraitLayout();
+class _PlayerLayout extends StatelessWidget {
+  const _PlayerLayout();
 
   @override
   Widget build(BuildContext context) {
@@ -110,61 +95,6 @@ class _PortraitLayout extends StatelessWidget {
             child: _TransportRow(),
           ),
           _StatusBar(),
-        ],
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Wide layout (landscape phone / tablet)
-// ────────────────────────────────────────────────────────────────────────────
-class _WideLayout extends StatelessWidget {
-  final bool isTablet;
-  const _WideLayout({required this.isTablet});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Row(
-        children: [
-          if (isTablet) ...[
-            SizedBox(width: 280, child: const PlaylistDrawer()),
-            Container(width: 1, color: AppColors.border),
-          ],
-          Expanded(
-            child: Column(
-              children: [
-                _AppBar(),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(flex: 2, child: _TabSection()),
-                      Expanded(
-                        flex: 3,
-                        child: Column(
-                          children: [
-                            Expanded(child: _StemControlsRow()),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: _ProgressSection(),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: _TransportRow(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _StatusBar(),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -368,24 +298,25 @@ class _StemControlsRow extends StatelessWidget {
             ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: stemNames.map((name) {
-              return Expanded(
-                child: StemControl(
-                  name: name,
-                  muted: provider.engine.muteStates[name] ?? false,
-                  volume: provider.engine.stemVolumes[name] ?? 1.0,
-                  enabled: enabled,
-                  onMuteToggle: () => provider.toggleMute(name),
-                  onVolumeChanged: (v) => provider.setStemVolume(name, v),
-                  autoUnmuteEnabled: name == 'vocals'
-                      ? provider.autoUnmuteEnabled
-                      : null,
-                  onAutoUnmuteToggle: name == 'vocals'
-                      ? provider.toggleAutoUnmute
-                      : null,
-                ),
-              );
-            }).toList(),
+            children: [
+              ...stemNames.map((name) {
+                return Expanded(
+                  child: StemControl(
+                    name: name,
+                    muted: provider.engine.muteStates[name] ?? false,
+                    enabled: enabled,
+                    onMuteToggle: () => provider.toggleMute(name),
+                    autoUnmuteEnabled: name == 'vocals'
+                        ? provider.autoUnmuteEnabled
+                        : null,
+                    onAutoUnmuteToggle: name == 'vocals'
+                        ? provider.toggleAutoUnmute
+                        : null,
+                  ),
+                );
+              }),
+              const Expanded(child: StemMixerButton()),
+            ],
           ),
         ],
       ),

@@ -256,9 +256,50 @@ class _MixerSheet extends StatelessWidget {
                 onIconTap: () =>
                     context.read<RemoteProvider>().toggleStemMute(track),
               ),
+            const Divider(color: AppColors.border, height: 20),
+            _AutoUnmuteRow(enabled: remote.autoUnmuteEnabled),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Toggles the desktop's vocals auto-unmute — same feature as the badge on
+/// the vocals stem button locally, mirrored here since the phone has no
+/// audio engine of its own to read the lyric line from.
+class _AutoUnmuteRow extends StatelessWidget {
+  final bool enabled;
+
+  const _AutoUnmuteRow({required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 34,
+          child: Center(
+            child: Icon(
+              enabled ? Icons.record_voice_over : Icons.voice_over_off,
+              color: enabled ? AppColors.accentBlue : Colors.grey,
+              size: 22,
+            ),
+          ),
+        ),
+        const Expanded(
+          child: Text(
+            'Auto-unmute',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+        Switch(
+          value: enabled,
+          activeTrackColor: AppColors.accentPurple,
+          onChanged: (_) =>
+              context.read<RemoteProvider>().toggleAutoUnmute(),
+        ),
+      ],
     );
   }
 }

@@ -126,6 +126,10 @@ class RemoteProvider extends ChangeNotifier {
 
   bool isMuted(String track) => _state.isMuted(track);
 
+  /// Whether the desktop's vocals auto-unmute is on. Only meaningful when
+  /// [hasMixer] — same additive extension, sent in the same snapshot.
+  bool get autoUnmuteEnabled => _state.autoUnmuteEnabled;
+
   bool get isConnected => _connection == RemoteConnection.conectado;
   bool get isBusy => _connection == RemoteConnection.conectando;
 
@@ -446,6 +450,11 @@ class RemoteProvider extends ChangeNotifier {
 
   Future<void> toggleStemMute(String track) =>
       setStemMute(track, !isMuted(track));
+
+  /// Toggles the desktop's vocals auto-unmute. A toggle survives the
+  /// optimistic path fine, same as [toggleStemMute].
+  Future<void> toggleAutoUnmute() =>
+      send(RemoteCommand.setAutoUnmute, value: !autoUnmuteEnabled);
 
   /// Queues a volume change for [track] ([kRemoteMasterTrack] for the master).
   /// Safe to call on every pixel of a drag: the send is debounced and the

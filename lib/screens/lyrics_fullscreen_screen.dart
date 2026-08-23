@@ -213,7 +213,7 @@ class _BottomControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -221,22 +221,23 @@ class _BottomControls extends StatelessWidget {
           colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: stemNames.map((name) {
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ...stemNames.map((name) {
               final muted = provider.engine.muteStates[name] ?? false;
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: GestureDetector(
                   onTap: () {
                     provider.toggleMute(name);
                     onMuteToggled(name, !muted);
                   },
                   child: CircleAvatar(
-                    radius: 18,
+                    radius: 16,
                     backgroundColor: muted
                         ? Colors.transparent
                         : AppColors.accentPurple.withValues(alpha: 0.3),
@@ -244,68 +245,54 @@ class _BottomControls extends StatelessWidget {
                       muted
                           ? 'assets/icons/no_$name.png'
                           : 'assets/icons/$name.png',
-                      width: 22,
-                      height: 22,
+                      width: 20,
+                      height: 20,
                     ),
                   ),
                 ),
               );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+            }),
+            const SizedBox(width: 20),
+            IconButton(
+              icon: const Icon(Icons.replay_5, color: Colors.white, size: 26),
+              onPressed: () => onSeekBy(const Duration(seconds: -5)),
+            ),
+            IconButton(
+              icon: Icon(
+                provider.status == PlaybackStatus.playing
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_filled,
+                color: AppColors.accentBlue,
+                size: 42,
+              ),
+              onPressed: provider.togglePlayPause,
+            ),
+            IconButton(
+              icon: const Icon(Icons.forward_5, color: Colors.white, size: 26),
+              onPressed: () => onSeekBy(const Duration(seconds: 5)),
+            ),
+            if (provider.currentSong != null) ...[
+              const SizedBox(width: 20),
               IconButton(
-                icon: const Icon(Icons.replay_5, color: Colors.white, size: 28),
-                onPressed: () => onSeekBy(const Duration(seconds: -5)),
+                iconSize: 18,
+                tooltip: 'Adelantar letra 0.5s',
+                icon: const Icon(Icons.fast_rewind, color: Colors.white70),
+                onPressed: () => provider.adjustLyricOffset(-50),
+              ),
+              Text(
+                '${provider.currentLyricOffsetSeconds >= 0 ? '+' : ''}'
+                '${provider.currentLyricOffsetSeconds.toStringAsFixed(1)}s',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
               IconButton(
-                icon: Icon(
-                  provider.status == PlaybackStatus.playing
-                      ? Icons.pause_circle_filled
-                      : Icons.play_circle_filled,
-                  color: AppColors.accentBlue,
-                  size: 48,
-                ),
-                onPressed: provider.togglePlayPause,
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.forward_5,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                onPressed: () => onSeekBy(const Duration(seconds: 5)),
+                iconSize: 18,
+                tooltip: 'Atrasar letra 0.5s',
+                icon: const Icon(Icons.fast_forward, color: Colors.white70),
+                onPressed: () => provider.adjustLyricOffset(50),
               ),
             ],
-          ),
-          if (provider.currentSong != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  iconSize: 20,
-                  tooltip: 'Adelantar letra 0.5s',
-                  icon: const Icon(Icons.fast_rewind, color: Colors.white70),
-                  onPressed: () => provider.adjustLyricOffset(-50),
-                ),
-                Text(
-                  '${provider.currentLyricOffsetSeconds >= 0 ? '+' : ''}'
-                  '${provider.currentLyricOffsetSeconds.toStringAsFixed(1)}s',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                IconButton(
-                  iconSize: 20,
-                  tooltip: 'Atrasar letra 0.5s',
-                  icon: const Icon(Icons.fast_forward, color: Colors.white70),
-                  onPressed: () => provider.adjustLyricOffset(50),
-                ),
-              ],
-            ),
           ],
-        ],
+        ),
       ),
     );
   }

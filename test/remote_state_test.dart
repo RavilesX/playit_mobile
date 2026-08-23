@@ -229,6 +229,7 @@ void main() {
       expect(state.masterVolume, 100);
       expect(state.volumeOf('vocals'), 100);
       expect(state.isMuted('vocals'), isFalse);
+      expect(state.autoUnmuteEnabled, isTrue); // default de una PC vieja
     });
 
     test('lee volumenes y mutes de una PC nueva', () {
@@ -237,6 +238,7 @@ void main() {
         'master_volume': 80,
         'volumes': {'drums': 100, 'vocals': 60, 'bass': 90, 'other': 100},
         'mute': {'drums': false, 'vocals': true, 'bass': false, 'other': false},
+        'auto_unmute': false,
       });
       expect(state.hasMixer, isTrue);
       expect(state.masterVolume, 80);
@@ -244,6 +246,7 @@ void main() {
       expect(state.volumeOf(kRemoteMasterTrack), 80);
       expect(state.isMuted('vocals'), isTrue);
       expect(state.isMuted('drums'), isFalse);
+      expect(state.autoUnmuteEnabled, isFalse);
     });
 
     test('valores fuera de rango o mal tipados no rompen nada', () {
@@ -293,6 +296,18 @@ void main() {
       expect(RemoteCommand.setMute.wire, 'set_mute');
       expect(RemoteCommand.setVolume.wire, 'set_volume');
       expect(RemoteCommand.setMasterVolume.wire, 'set_master_volume');
+      expect(RemoteCommand.setAutoUnmute.wire, 'set_auto_unmute');
+    });
+
+    test('el auto-unmute optimista se ve antes de que conteste la PC', () {
+      final off = RemoteState.unknown.optimistic(
+        RemoteCommand.setAutoUnmute,
+        value: false,
+      );
+      expect(off.autoUnmuteEnabled, isFalse);
+
+      final back = off.optimistic(RemoteCommand.setAutoUnmute);
+      expect(back.autoUnmuteEnabled, isTrue);
     });
   });
 
