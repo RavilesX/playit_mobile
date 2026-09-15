@@ -12,6 +12,7 @@ import '../services/media_library.dart';
 import '../services/saf_storage.dart';
 import '../utils/duration_format.dart';
 import '../utils/playlist_sort.dart';
+import '../utils/tags.dart';
 import '../utils/text_fold.dart';
 
 /// "artist|title" — matches a Song regardless of playlist position or
@@ -87,6 +88,18 @@ class PlayerProvider extends ChangeNotifier {
   final Map<String, int> _lyricOffsetCs = {};
   int _currentLyricOffsetCs = 0;
 
+  /// Playback queue: songs that play before the playlist advances, in FIFO
+  /// order (desktop's `play_queue`). Holds the same [Song] objects the
+  /// playlist holds, so sorting or filtering the playlist doesn't disturb
+  /// it — only removing a song does, and [_resolveQueue] handles that.
+  List<Song> _playQueue = [];
+
+  /// Free-form comma-separated tags per song, keyed by "artist|title"
+  /// (desktop keeps them on the playlist dict as `song['tags']`). Naming a
+  /// stem here mutes it when the song is consumed from the queue — see
+  /// [_applyTagMutes]. Unlike desktop, these survive app restarts.
+  final Map<String, String> _songTags = {};
+
   bool _spectrumEnabled = false;
 
   /// Small LRU-ish caches (insertion-ordered maps, oldest evicted first) so
@@ -149,6 +162,107 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Cola de reproducción ──────────────────────────────────────────────
+
+  /// Queued songs in the order they'll play, before the playlist's own
+  /// order resumes.
+  List<Song> get playQueue => List.unmodifiable(_playQueue);
+
+  bool isQueued(Song song) => _playQueue.contains(song);
+
+  /// Comma-separated tags of [song] (empty when it has none).
+  String tagsOf(Song song) => _songTags[_songKey(song)] ?? '';
+
+  /// Queues [song] if it isn't already, removes it if it is — the single
+  /// action behind the playlist's "Agregar/Quitar de la cola" (desktop's
+  /// `_toggle_queue`). Queuing the same song twice is deliberately a no-op
+  /// rather than a second entry.
+  void toggleQueue(Song song) {
+    if (!_playQueue.remove(song)) _playQueue.add(song);
+    notifyListeners();
+    unawaited(_persistQueue());
+  }
+
+  void removeFromQueue(Song song) {
+    if (!_playQueue.remove(song)) return;
+    notifyListeners();
+    unawaited(_persistQueue());
+  }
+
+  void clearQueue() {
+    if (_playQueue.isEmpty) return;
+    _playQueue = [];
+    notifyListeners();
+    unawaited(_persistQueue());
+  }
+
+  /// Replaces [song]'s tags with [tags] (absolute, like the desktop's tag
+  /// cell: the caller sends the whole list, not one addition).
+  void setTags(Song song, String tags) {
+    final key = _songKey(song);
+    final clean = tags.trim();
+    if (clean.isEmpty) {
+      if (_songTags.remove(key) == null) return;
+    } else {
+      if (_songTags[key] == clean) return;
+      _songTags[key] = clean;
+    }
+    notifyListeners();
+    unawaited(_persistQueue());
+  }
+
+  /// Adds one tag to [song], keeping the existing ones. Duplicates (folded,
+  /// so "Voz" and "voz" are the same tag) are ignored.
+  void addTag(Song song, String tag) {
+    final clean = tag.trim();
+    if (clean.isEmpty) return;
+    final current = splitTags(tagsOf(song));
+    if (current.any((t) => foldText(t) == foldText(clean))) return;
+    setTags(song, [...current, clean].join(', '));
+  }
+
+  void removeTag(Song song, String tag) {
+    final kept = splitTags(
+      tagsOf(song),
+    ).where((t) => foldText(t) != foldText(tag)).toList();
+    setTags(song, kept.join(', '));
+  }
+
+  Future<void> _persistQueue() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Stored by "artist|title", not by index: the playlist gets re-sorted
+    // and re-scanned, and only the identity of the song survives that.
+    await prefs.setStringList(
+      'play_queue',
+      _playQueue.map(_songKey).toList(),
+    );
+    await prefs.setString('song_tags', jsonEncode(_songTags));
+  }
+
+  /// Queue read back from storage, waiting for a playlist to resolve
+  /// against. Cleared once [_resolveQueue] has consumed it.
+  List<String> _savedQueueKeys = const [];
+
+  /// Re-points the queue at the songs actually present in the playlist,
+  /// dropping what's gone (desktop's `_purge_queue`, which runs after every
+  /// playlist mutation for the same reason). A rescan builds new [Song]
+  /// objects, so the queue is rebuilt by key, not carried over.
+  void _resolveQueue() {
+    // A scan that found nothing (unreadable folder, revoked SAF grant) is
+    // not the user emptying their queue: hold the restored keys until a
+    // playlist actually shows up, instead of dropping them for good.
+    if (_playlist.isEmpty && _playQueue.isEmpty) return;
+    final keys = _playQueue.isEmpty
+        ? _savedQueueKeys
+        : _playQueue.map(_songKey).toList();
+    _savedQueueKeys = const [];
+    final byKey = {for (final s in _playlist) _songKey(s): s};
+    _playQueue = [
+      for (final key in keys)
+        if (byKey[key] != null) byKey[key]!,
+    ];
+  }
+
   bool get spectrumEnabled => _spectrumEnabled;
 
   Future<void> toggleSpectrum() async {
@@ -209,8 +323,12 @@ class PlayerProvider extends ChangeNotifier {
     _autoUnmuteEnabled = prefs.getBool('auto_unmute_enabled') ?? true;
     _lyricsScale = prefs.getDouble('lyrics_scale') ?? 1.0;
     _loadJsonStringMap(prefs, 'duration_cache', _durationCache);
+    _loadJsonStringMap(prefs, 'song_tags', _songTags);
     _loadJsonIntMap(prefs, 'lyric_offsets', _lyricOffsetCs);
     _restorePlaybackState(prefs);
+    // Kept until the library finishes scanning: the songs it names don't
+    // exist as objects yet (see _loadLibrary).
+    _savedQueueKeys = prefs.getStringList('play_queue') ?? const [];
 
     _spectrumEnabled = prefs.getBool('spectrum_enabled') ?? false;
     if (_spectrumEnabled) unawaited(_engine.setVisualizationEnabled(true));
@@ -368,6 +486,7 @@ class PlayerProvider extends ChangeNotifier {
       _playlist = [];
       _statusText = 'Error leyendo la carpeta';
     }
+    _resolveQueue();
     _currentIndex = -1;
     _sortModeIndex = -1;
     _searchQuery = '';
@@ -548,9 +667,35 @@ class PlayerProvider extends ChangeNotifier {
     if (_playlist.isEmpty) return;
     if (_repeatMode && _currentIndex >= 0) {
       await _replayCurrent();
-    } else {
-      await playSong((_currentIndex + 1) % _playlist.length);
+      return;
     }
+    // The queue comes first and is consumed in order; only once it's empty
+    // does the playlist's own order resume (desktop's `play_next`).
+    while (_playQueue.isNotEmpty) {
+      final queued = _playQueue.removeAt(0);
+      final index = _playlist.indexOf(queued);
+      unawaited(_persistQueue());
+      // Dropped from the playlist while it waited in the queue: skip it.
+      if (index < 0) continue;
+      _applyTagMutes(queued);
+      await playSong(index);
+      return;
+    }
+    await playSong((_currentIndex + 1) % _playlist.length);
+  }
+
+  /// Mutes the stems the song's tags name, and unmutes the rest — only when
+  /// the song is reached through the queue, never on a normal playlist
+  /// advance (desktop's `_apply_tag_mutes`). Tags that name no stem leave
+  /// the current mix untouched.
+  void _applyTagMutes(Song song) {
+    final named = stemsNamedBy(tagsOf(song));
+    if (named.isEmpty) return;
+    for (final stem in stemNames) {
+      _engine.setMuted(stem, named.contains(stem));
+    }
+    _applyAutoUnmute();
+    _schedulePersistPlaybackState();
   }
 
   /// Repeat without reloading the 4 stem files: rewind and play.

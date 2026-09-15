@@ -11,6 +11,7 @@ import '../services/audio_engine.dart';
 import '../utils/duration_format.dart';
 import '../widgets/remote_mixer.dart';
 import '../widgets/remote_pair_form.dart';
+import '../widgets/remote_queue_sheet.dart';
 import '../widgets/search_field.dart';
 import 'qr_scan_screen.dart';
 
@@ -404,6 +405,52 @@ class _NowPlayingHeader extends StatelessWidget {
                     ],
                   ),
           ),
+          // Only shown by a desktop that reports its queue; the badge is the
+          // fastest read of "how many songs are waiting".
+          if (remote.hasQueue)
+            _QueueButton(count: remote.queue.length, compact: compact),
+        ],
+      ),
+    );
+  }
+}
+
+/// Opens the PC's queue manager, with the queued count as a badge.
+class _QueueButton extends StatelessWidget {
+  final int count;
+  final bool compact;
+  const _QueueButton({required this.count, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Cola de la PC',
+      visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
+      onPressed: () => showRemoteQueueSheet(context),
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            Icons.queue_music,
+            color: count > 0 ? AppColors.accentPurple : AppColors.border,
+            size: compact ? 22 : 26,
+          ),
+          if (count > 0)
+            Positioned(
+              right: -6,
+              top: -6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppColors.accentPurple,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -493,6 +540,7 @@ class _RemotePlaylistList extends StatelessWidget {
       itemBuilder: (ctx, pos) {
         final track = items[pos];
         final isCurrent = track.index == remote.state.index;
+        final queued = remote.isQueued(track.index);
         return ListTile(
           selected: isCurrent,
           selectedTileColor: AppColors.pinkHighlight.withValues(alpha: 0.3),
@@ -519,13 +567,33 @@ class _RemotePlaylistList extends StatelessWidget {
               fontSize: 12,
             ),
           ),
-          trailing: track.duration.isEmpty
-              ? null
-              : Text(
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Queued on the PC — the same purple dot the desktop paints
+              // on its own playlist rows.
+              if (queued)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(
+                    Icons.circle,
+                    size: 9,
+                    color: AppColors.accentPurple,
+                  ),
+                ),
+              if (track.duration.isNotEmpty)
+                Text(
                   track.duration,
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
+            ],
+          ),
           onTap: () => context.read<RemoteProvider>().playIndex(track.index),
+          // Older desktops don't serve the queue; long-pressing would only
+          // offer actions that answer 400.
+          onLongPress: remote.hasQueue
+              ? () => showRemoteTrackActionsSheet(context, track)
+              : null,
         );
       },
     );

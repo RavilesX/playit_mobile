@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/player_provider.dart';
+import 'queue_sheet.dart';
 import 'search_field.dart';
-import 'song_info_sheet.dart';
+import 'song_actions_sheet.dart';
 
 class PlaylistDrawer extends StatelessWidget {
   const PlaylistDrawer({super.key});
@@ -45,6 +46,7 @@ class PlaylistDrawer extends StatelessWidget {
                           ),
                         ),
                       ),
+                      const _QueueButton(),
                       IconButton(
                         icon: const Icon(
                           Icons.folder_open,
@@ -67,6 +69,49 @@ class PlaylistDrawer extends StatelessWidget {
             Expanded(child: _PlaylistList()),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Opens the queue manager, with the queued count as a badge — the queue's
+/// other entry point is a song's own long-press menu, which doesn't help
+/// when what you want is to see what's already waiting.
+class _QueueButton extends StatelessWidget {
+  const _QueueButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final count = context.select<PlayerProvider, int>(
+      (p) => p.playQueue.length,
+    );
+    return IconButton(
+      tooltip: 'Cola de reproducción',
+      onPressed: () => showQueueSheet(context),
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            Icons.playlist_play,
+            color: count > 0 ? AppColors.accentPurple : AppColors.border,
+          ),
+          if (count > 0)
+            Positioned(
+              right: -6,
+              top: -6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppColors.accentPurple,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -181,6 +226,7 @@ class _PlaylistList extends StatelessWidget {
         final i = visible[pos];
         final song = provider.playlist[i];
         final isCurrent = i == provider.currentIndex;
+        final queued = provider.isQueued(song);
         return ListTile(
           selected: isCurrent,
           selectedTileColor: AppColors.pinkHighlight.withValues(alpha: 0.3),
@@ -207,19 +253,35 @@ class _PlaylistList extends StatelessWidget {
             ),
             overflow: TextOverflow.ellipsis,
           ),
-          trailing: song.duration == null
-              ? null
-              : Text(
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Queued marker, desktop's purple dot (PlaylistItemDelegate's
+              // QUEUE_ROLE): the queue's own order lives in the sheet, this
+              // only says "this one is waiting".
+              if (queued)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(
+                    Icons.circle,
+                    size: 9,
+                    color: AppColors.accentPurple,
+                  ),
+                ),
+              if (song.duration != null)
+                Text(
                   song.duration!,
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
+            ],
+          ),
           onTap: () {
             context.read<PlayerProvider>().playSong(i);
             if (Scaffold.of(ctx).isDrawerOpen) {
               Navigator.of(ctx).pop();
             }
           },
-          onLongPress: () => showSongInfoSheet(context, song),
+          onLongPress: () => showSongActionsSheet(context, song),
         );
       },
     );

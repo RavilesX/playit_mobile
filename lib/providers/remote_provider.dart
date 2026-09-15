@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/remote_state.dart';
 import '../services/remote_client.dart';
 import '../services/remote_discovery.dart';
+import '../utils/tags.dart';
 import '../utils/text_fold.dart';
 
 const _prefHost = 'remote_host';
@@ -329,6 +330,9 @@ class RemoteProvider extends ChangeNotifier {
         next.masterVolume != _state.masterVolume ||
         !mapEquals(next.volumes, _state.volumes) ||
         !mapEquals(next.mute, _state.mute) ||
+        next.autoUnmuteEnabled != _state.autoUnmuteEnabled ||
+        !listEquals(next.queue, _state.queue) ||
+        !listEquals(next.queueTags, _state.queueTags) ||
         next.position.inSeconds != _state.position.inSeconds;
     _state = next;
     if (changed) notifyListeners();
@@ -450,6 +454,55 @@ class RemoteProvider extends ChangeNotifier {
 
   Future<void> toggleStemMute(String track) =>
       setStemMute(track, !isMuted(track));
+
+  // ── Cola de la PC ─────────────────────────────────────────────────────
+
+  /// Whether the paired desktop reports its playback queue. False for older
+  /// desktops, and the screen hides the queue actions rather than showing
+  /// buttons that answer 400.
+  bool get hasQueue => _state.hasQueue;
+
+  /// Playlist indices queued on the PC, in playing order.
+  List<int> get queue => _state.queue;
+
+  bool isQueued(int index) => _state.isQueued(index);
+
+  String queueTagsOf(int index) => _state.queueTagsOf(index);
+
+  /// Queues the song at playlist [index] on the PC, or takes it out if it's
+  /// already there — the desktop treats a second `queue_add` as a no-op, so
+  /// the phone is the one that has to pick which command to send.
+  Future<void> toggleQueue(int index) => send(
+    isQueued(index) ? RemoteCommand.queueRemove : RemoteCommand.queueAdd,
+    index: index,
+  );
+
+  Future<void> removeFromQueue(int index) =>
+      send(RemoteCommand.queueRemove, index: index);
+
+  Future<void> clearQueue() => send(RemoteCommand.queueClear);
+
+  /// Replaces the tags of the queued song at playlist [index] (absolute:
+  /// the whole comma-separated string, like the desktop's tag cell).
+  Future<void> setQueueTags(int index, String tags) =>
+      send(RemoteCommand.queueSetTags, index: index, value: tags);
+
+  Future<void> addQueueTag(int index, String tag) {
+    final clean = tag.trim();
+    if (clean.isEmpty) return Future.value();
+    final current = splitTags(queueTagsOf(index));
+    if (current.any((t) => foldText(t) == foldText(clean))) {
+      return Future.value();
+    }
+    return setQueueTags(index, [...current, clean].join(', '));
+  }
+
+  Future<void> removeQueueTag(int index, String tag) {
+    final kept = splitTags(
+      queueTagsOf(index),
+    ).where((t) => foldText(t) != foldText(tag)).toList();
+    return setQueueTags(index, kept.join(', '));
+  }
 
   /// Toggles the desktop's vocals auto-unmute. A toggle survives the
   /// optimistic path fine, same as [toggleStemMute].

@@ -51,6 +51,12 @@ class FakeDesktop {
     'other': false,
   };
 
+  /// Cola de reproducción. Un desktop viejo (queue = false) no publica la
+  /// clave y responde 400 a los comandos, como la whitelist real.
+  bool queueSupported = true;
+  List<int> queue = [];
+  Map<int, String> tags = {};
+
   /// Cover bytes per playlist index. A missing entry answers 404, the way a
   /// song folder without cover.png does.
   Map<int, List<int>> covers = {
@@ -122,6 +128,11 @@ class FakeDesktop {
               'volumes': volumes,
               'mute': mute,
             },
+            if (queueSupported) ...{
+              'queue': queue,
+              // Paralela a queue: misma longitud y orden, '' sin tags.
+              'queue_tags': [for (final i in queue) tags[i] ?? ''],
+            },
           });
         case '/api/playlist':
           playlistRequests++;
@@ -146,7 +157,8 @@ class FakeDesktop {
         case '/api/command':
           final decoded = jsonDecode(body) as Map<String, dynamic>;
           commands.add(decoded);
-          if (!mixer && _isMixerCommand(decoded['cmd'])) {
+          if ((!mixer && _isMixerCommand(decoded['cmd'])) ||
+              (!queueSupported && _isQueueCommand(decoded['cmd']))) {
             _send(request, 400, {'error': 'comando desconocido'});
             continue;
           }
@@ -182,11 +194,25 @@ class FakeDesktop {
         volumes = {...volumes, cmd['track'] as String: cmd['value'] as int};
       case 'set_master_volume':
         masterVolume = cmd['value'] as int;
+      case 'queue_add':
+        // Agregar dos veces la misma canción es un no-op, como en el
+        // desktop (_toggle_queue_many con add=True).
+        final i = cmd['index'] as int;
+        if (!queue.contains(i)) queue = [...queue, i];
+      case 'queue_remove':
+        queue = [...queue]..remove(cmd['index'] as int);
+      case 'queue_clear':
+        queue = [];
+      case 'queue_set_tags':
+        tags = {...tags, cmd['index'] as int: cmd['value'] as String};
     }
   }
 
   static bool _isMixerCommand(Object? cmd) =>
       cmd == 'set_mute' || cmd == 'set_volume' || cmd == 'set_master_volume';
+
+  static bool _isQueueCommand(Object? cmd) =>
+      cmd is String && cmd.startsWith('queue_');
 
   void _send(HttpRequest request, int status, Map<String, Object> payload) {
     request.response
@@ -732,6 +758,118 @@ void main() {
       expect(provider.isConnected, isTrue);
       expect(provider.errorMessage, isNotEmpty);
       expect(provider.isMuted('vocals'), isFalse);
+    });
+
+    test('encolar una canción llega a la PC y vuelve confirmado', () async {
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      expect(provider.hasQueue, isTrue);
+      await provider.toggleQueue(1);
+
+      expect(desktop.commands.single, {'cmd': 'queue_add', 'index': 1});
+      expect(desktop.queue, [1]);
+      expect(provider.queue, [1]);
+      expect(provider.isQueued(1), isTrue);
+    });
+
+    test('el mismo botón desencola cuando ya estaba en la cola', () async {
+      desktop.queue = [1];
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      await provider.toggleQueue(1);
+
+      expect(desktop.commands.single, {'cmd': 'queue_remove', 'index': 1});
+      expect(desktop.queue, isEmpty);
+      expect(provider.queue, isEmpty);
+    });
+
+    test('limpiar vacía la cola de la PC', () async {
+      desktop.queue = [0, 1];
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      await provider.clearQueue();
+
+      expect(desktop.commands.single, {'cmd': 'queue_clear'});
+      expect(desktop.queue, isEmpty);
+    });
+
+    test('agregar una tag manda la lista completa, no el agregado', () async {
+      desktop.queue = [1];
+      desktop.tags = {1: 'Voz'};
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      await provider.addQueueTag(1, 'Bajo');
+
+      // Absoluto, como el resto del protocolo: un comando perdido se
+      // corrige con el siguiente en vez de acumular mal.
+      expect(desktop.commands.single, {
+        'cmd': 'queue_set_tags',
+        'index': 1,
+        'value': 'Voz, Bajo',
+      });
+      expect(desktop.tags[1], 'Voz, Bajo');
+      expect(provider.queueTagsOf(1), 'Voz, Bajo');
+    });
+
+    test('una tag repetida no se manda de nuevo', () async {
+      desktop.queue = [1];
+      desktop.tags = {1: 'Voz'};
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      // Misma tag con otra caja/acento: ya está, no hay nada que mandar.
+      await provider.addQueueTag(1, 'voz');
+
+      expect(desktop.commands, isEmpty);
+    });
+
+    test('quitar una tag deja las demás', () async {
+      desktop.queue = [1];
+      desktop.tags = {1: 'Voz, Bajo, ensayo'};
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      await provider.removeQueueTag(1, 'Bajo');
+
+      expect(desktop.tags[1], 'Voz, ensayo');
+    });
+
+    test('el sondeo ve la cola que se armó en la PC', () async {
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      desktop.queue = [1, 0];
+      desktop.tags = {1: 'Voz'};
+      await Future.delayed(RemoteProvider.pollInterval * 1.5);
+
+      expect(provider.queue, [1, 0]);
+      expect(provider.queueTagsOf(1), 'Voz');
+    });
+
+    test('con una PC vieja no se ofrece la cola', () async {
+      desktop.queueSupported = false;
+      final provider = RemoteProvider();
+      addTearDown(provider.dispose);
+      await provider.connect(desktop.pairing);
+
+      expect(provider.hasQueue, isFalse);
+
+      // Y si igual se manda, el 400 no tira la sesión.
+      await provider.toggleQueue(1);
+      expect(provider.isConnected, isTrue);
+      expect(provider.errorMessage, isNotEmpty);
+      expect(provider.queue, isEmpty);
     });
 
     test('forget borra el token guardado', () async {

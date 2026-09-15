@@ -35,6 +35,10 @@ enum RemoteCommand {
   setVolume,
   setMasterVolume,
   setAutoUnmute,
+  queueAdd,
+  queueRemove,
+  queueClear,
+  queueSetTags,
 }
 
 extension RemoteCommandWire on RemoteCommand {
@@ -49,6 +53,10 @@ extension RemoteCommandWire on RemoteCommand {
     RemoteCommand.setVolume => 'set_volume',
     RemoteCommand.setMasterVolume => 'set_master_volume',
     RemoteCommand.setAutoUnmute => 'set_auto_unmute',
+    RemoteCommand.queueAdd => 'queue_add',
+    RemoteCommand.queueRemove => 'queue_remove',
+    RemoteCommand.queueClear => 'queue_clear',
+    RemoteCommand.queueSetTags => 'queue_set_tags',
   };
 }
 
@@ -297,6 +305,22 @@ class RemoteState {
   /// its own checkbox's default.
   final bool autoUnmuteEnabled;
 
+  /// The PC's playback queue as playlist indices, in the order they'll
+  /// play before the playlist's own order resumes. Empty both when the
+  /// queue is empty and when the desktop is too old to report one — see
+  /// [hasQueue] to tell those apart.
+  final List<int> queue;
+
+  /// Tags of the queued songs, parallel to [queue]: same length, same
+  /// order, empty string for a song without tags. A tag naming a stem
+  /// mutes it when the desktop reaches that song through the queue.
+  final List<String> queueTags;
+
+  /// Whether the PC reported the queue at all. False means a desktop that
+  /// would answer 400 to `queue_add`, so the UI hides those actions rather
+  /// than offering buttons that fail — same rule as [hasMixer].
+  final bool hasQueue;
+
   /// Whether the PC reported any mixer field at all. False means an older
   /// desktop that would answer 400 to `set_volume` / `set_mute`, so the UI
   /// hides those controls instead of offering buttons that fail.
@@ -322,6 +346,9 @@ class RemoteState {
     this.mute = const {},
     this.autoUnmuteEnabled = true,
     this.hasMixer = false,
+    this.queue = const [],
+    this.queueTags = const [],
+    this.hasQueue = false,
   });
 
   static const unknown = RemoteState(
@@ -374,6 +401,18 @@ class RemoteState {
       autoUnmuteEnabled: json.containsKey('auto_unmute')
           ? json['auto_unmute'] == true
           : true,
+      hasQueue: json.containsKey('queue'),
+      queue: json['queue'] is! List
+          ? const []
+          : [
+              for (final i in json['queue'] as List)
+                if (i is int) i,
+            ],
+      queueTags: json['queue_tags'] is! List
+          ? const []
+          : [
+              for (final t in json['queue_tags'] as List) t is String ? t : '',
+            ],
       playback: _playbackFromWire(json['state']),
       index: asInt(json['index'], -1),
       artist: json['artist'] is String ? json['artist'] as String : '',
@@ -399,6 +438,47 @@ class RemoteState {
       track == kRemoteMasterTrack ? masterVolume : volumes[track] ?? 100;
 
   bool isMuted(String track) => mute[track] ?? false;
+
+  bool isQueued(int index) => queue.contains(index);
+
+  /// Tags of the queued song at playlist [index], or '' when it isn't
+  /// queued. Reads through [queue]'s position because [queueTags] is
+  /// parallel to it — a desktop that sends a shorter list (or none) simply
+  /// reads as "no tags" instead of throwing.
+  String queueTagsOf(int index) {
+    final pos = queue.indexOf(index);
+    if (pos < 0 || pos >= queueTags.length) return '';
+    return queueTags[pos];
+  }
+
+  /// Copy with the tags of the queued song at playlist [index] replaced.
+  /// A song that isn't queued has nowhere to show tags, so it's left alone
+  /// — the confirming poll brings back whatever the PC really did.
+  RemoteState _withQueueTags(int index, String tags) {
+    final pos = queue.indexOf(index);
+    if (pos < 0) return this;
+    final next = [
+      for (var i = 0; i < queue.length; i++)
+        i < queueTags.length ? queueTags[i] : '',
+    ];
+    next[pos] = tags;
+    return copyWith(queueTags: next);
+  }
+
+  /// Copy with [index] queued (appended, like the desktop) or removed.
+  RemoteState withQueued(int index, bool queued) {
+    if (queued == isQueued(index)) return this;
+    if (queued) {
+      return copyWith(queue: [...queue, index], queueTags: [...queueTags, '']);
+    }
+    final pos = queue.indexOf(index);
+    return copyWith(
+      queue: [...queue]..removeAt(pos),
+      queueTags: pos < queueTags.length
+          ? ([...queueTags]..removeAt(pos))
+          : queueTags,
+    );
+  }
 
   /// Copy with one volume replaced, addressing master and stems alike.
   RemoteState withVolume(String track, int value) {
@@ -446,6 +526,14 @@ class RemoteState {
     RemoteCommand.setAutoUnmute => copyWith(
       autoUnmuteEnabled: value is bool ? value : !autoUnmuteEnabled,
     ),
+    RemoteCommand.queueAdd =>
+      index == null ? this : withQueued(index, true),
+    RemoteCommand.queueRemove =>
+      index == null ? this : withQueued(index, false),
+    RemoteCommand.queueClear => copyWith(queue: const [], queueTags: const []),
+    RemoteCommand.queueSetTags => index == null || value is! String
+        ? this
+        : _withQueueTags(index, value),
     RemoteCommand.playIndex => copyWith(
       playback: RemotePlayback.activa,
       index: index ?? this.index,
@@ -471,6 +559,8 @@ class RemoteState {
     Map<String, int>? volumes,
     Map<String, bool>? mute,
     bool? autoUnmuteEnabled,
+    List<int>? queue,
+    List<String>? queueTags,
   }) => RemoteState(
     playback: playback ?? this.playback,
     index: index ?? this.index,
@@ -486,5 +576,8 @@ class RemoteState {
     mute: mute ?? this.mute,
     autoUnmuteEnabled: autoUnmuteEnabled ?? this.autoUnmuteEnabled,
     hasMixer: hasMixer,
+    queue: queue ?? this.queue,
+    queueTags: queueTags ?? this.queueTags,
+    hasQueue: hasQueue,
   );
 }

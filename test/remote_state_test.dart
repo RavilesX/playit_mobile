@@ -297,6 +297,10 @@ void main() {
       expect(RemoteCommand.setVolume.wire, 'set_volume');
       expect(RemoteCommand.setMasterVolume.wire, 'set_master_volume');
       expect(RemoteCommand.setAutoUnmute.wire, 'set_auto_unmute');
+      expect(RemoteCommand.queueAdd.wire, 'queue_add');
+      expect(RemoteCommand.queueRemove.wire, 'queue_remove');
+      expect(RemoteCommand.queueClear.wire, 'queue_clear');
+      expect(RemoteCommand.queueSetTags.wire, 'queue_set_tags');
     });
 
     test('el auto-unmute optimista se ve antes de que conteste la PC', () {
@@ -308,6 +312,121 @@ void main() {
 
       final back = off.optimistic(RemoteCommand.setAutoUnmute);
       expect(back.autoUnmuteEnabled, isTrue);
+    });
+  });
+
+  group('RemoteState cola remota', () {
+    Map<String, dynamic> base() => {
+      'v': 1,
+      'state': 'Activa',
+      'index': 0,
+      'artist': 'Rush',
+      'song': 'YYZ',
+      'rev': 3,
+    };
+
+    test('una PC vieja no reporta cola y no se ofrecen las acciones', () {
+      final state = RemoteState.fromJson(base());
+      expect(state.hasQueue, isFalse);
+      expect(state.queue, isEmpty);
+      expect(state.isQueued(0), isFalse);
+    });
+
+    test('una cola vacía se distingue de una PC que no la reporta', () {
+      final state = RemoteState.fromJson({...base(), 'queue': []});
+      expect(state.hasQueue, isTrue);
+      expect(state.queue, isEmpty);
+    });
+
+    test('lee los índices en orden y sus tags paralelas', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'queue': [2, 0],
+        'queue_tags': ['Voz', ''],
+      });
+      expect(state.queue, [2, 0]);
+      expect(state.isQueued(2), isTrue);
+      expect(state.isQueued(1), isFalse);
+      expect(state.queueTagsOf(2), 'Voz');
+      expect(state.queueTagsOf(0), '');
+      // No encolada: no tiene dónde mostrar tags.
+      expect(state.queueTagsOf(1), '');
+    });
+
+    test('tags más cortas que la cola no rompen la lectura', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'queue': [1, 2],
+        'queue_tags': ['Voz'],
+      });
+      expect(state.queueTagsOf(1), 'Voz');
+      expect(state.queueTagsOf(2), '');
+    });
+
+    test('valores mal tipados se descartan en vez de reventar', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'queue': [0, 'dos', null, 3],
+        'queue_tags': 'Voz',
+      });
+      expect(state.queue, [0, 3]);
+      expect(state.queueTagsOf(0), '');
+    });
+
+    test('encolar y desencolar optimistas se ven antes de la PC', () {
+      final queued = RemoteState.unknown.optimistic(
+        RemoteCommand.queueAdd,
+        index: 4,
+      );
+      expect(queued.queue, [4]);
+
+      final back = queued.optimistic(RemoteCommand.queueRemove, index: 4);
+      expect(back.queue, isEmpty);
+    });
+
+    test('encolar dos veces la misma canción no la duplica', () {
+      final once = RemoteState.unknown.optimistic(
+        RemoteCommand.queueAdd,
+        index: 4,
+      );
+      final twice = once.optimistic(RemoteCommand.queueAdd, index: 4);
+      expect(twice.queue, [4]);
+    });
+
+    test('quitar del medio no descoloca las tags de las demás', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'queue': [0, 1, 2],
+        'queue_tags': ['a', 'b', 'c'],
+      }).optimistic(RemoteCommand.queueRemove, index: 1);
+      expect(state.queue, [0, 2]);
+      expect(state.queueTagsOf(0), 'a');
+      expect(state.queueTagsOf(2), 'c');
+    });
+
+    test('limpiar deja la cola y las tags vacías', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'queue': [0, 1],
+        'queue_tags': ['a', 'b'],
+      }).optimistic(RemoteCommand.queueClear);
+      expect(state.queue, isEmpty);
+      expect(state.queueTags, isEmpty);
+    });
+
+    test('las tags optimistas van a la canción encolada que se pidió', () {
+      final state = RemoteState.fromJson({
+        ...base(),
+        'queue': [5, 6],
+        'queue_tags': ['', ''],
+      }).optimistic(RemoteCommand.queueSetTags, index: 6, value: 'Voz, Bajo');
+      expect(state.queueTagsOf(6), 'Voz, Bajo');
+      expect(state.queueTagsOf(5), '');
+    });
+
+    test('copyWith conserva la presencia de la cola', () {
+      final state = RemoteState.fromJson({...base(), 'queue': [1]});
+      expect(state.copyWith(repeat: true).hasQueue, isTrue);
     });
   });
 
