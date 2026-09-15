@@ -11,7 +11,7 @@ Reproductor de audio multi-stem para Flutter. / A multi-stem audio player built 
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Desktop-informational)
-![Version](https://img.shields.io/badge/version-2.1.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.1-blue)
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 </div>
@@ -52,6 +52,7 @@ Pensado para ensayar: estás con el instrumento, termina la canción, y en vez d
 - Ver la playlist completa del PC y **tocar cualquier canción para reproducirla**.
 - Ver qué está sonando, con su carátula y el tiempo transcurrido.
 - **Silenciar cada stem del PC y ajustar su volumen** (batería, voz, bajo, otros) más el volumen general, igual que en el propio PC — requiere una versión de PlayIt Desktop que sirva estos datos; con una más antigua, los controles simplemente no aparecen.
+- **Manejar la cola de reproducción del PC** (agregar, quitar, vaciar) desde el badge de la cabecera — igual, solo si el PC la sirve.
 
 **Cómo funciona por dentro**
 
@@ -66,7 +67,7 @@ Pensado para ensayar: estás con el instrumento, termina la canción, y en vez d
 - Las redes Wi-Fi de invitados suelen aislar los dispositivos entre sí y bloquean la conexión.
 - La primera vez, el firewall de Windows puede pedir autorización (dos veces: una por cada tipo de conexión).
 - La conexión no va cifrada. En tu red doméstica o de sala de ensayo es razonable; en una red pública, alguien en el mismo segmento podría llegar a controlar la reproducción. El botón *Generar nuevo código* del PC invalida cualquier móvil emparejado.
-- Al entrar en modo remoto se detiene la reproducción local del móvil, para que no suenen dos fuentes a la vez.
+- Mientras el móvil está conectado a un PC, su reproducción local queda desactivada (se detiene y no puede iniciarse), para que no suenen dos fuentes a la vez. Se reactiva sola al desconectar, ya sea manualmente, por pérdida de conexión, o al salir de la pantalla de control remoto.
 
 ### ⚠️ Requisito previo: PlayIt Desktop
 
@@ -181,6 +182,7 @@ Built for rehearsing: you're holding an instrument, the song ends, and instead o
 - Browse the PC's full playlist and **tap any song to play it**.
 - See what's playing, with its cover art and elapsed time.
 - **Mute each PC stem and adjust its volume** (drums, vocals, bass, other) plus the master volume, same as on the PC itself — requires a PlayIt Desktop build that serves this data; on an older one, the controls simply don't show up.
+- **Manage the PC's playback queue** (add, remove, clear) from the header badge — again, only if the PC serves it.
 
 **How it works**
 
@@ -195,7 +197,7 @@ Built for rehearsing: you're holding an instrument, the song ends, and instead o
 - Guest Wi-Fi networks usually isolate devices from each other, which blocks the connection.
 - On first use, Windows Firewall may ask for authorization (twice — once per connection type).
 - The connection is not encrypted. On a home or rehearsal-room network that's reasonable; on a public network, someone on the same segment could take over playback. The PC's *Generar nuevo código* button invalidates any paired phone.
-- Entering remote mode stops local playback on the phone, so two sources never play at once.
+- While the phone is connected to a PC, its local playback is disabled (stopped and can't be started), so two sources never play at once. It re-enables automatically on disconnect — manual, connection loss, or leaving the remote-control screen.
 
 ### ⚠️ Prerequisite: PlayIt Desktop
 
