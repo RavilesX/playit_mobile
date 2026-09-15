@@ -336,13 +336,10 @@ class PlayerProvider extends ChangeNotifier {
     await _restoreLibrary();
   }
 
-  /// Restores master/stem volumes, mutes and repeat across app restarts.
-  /// The engine defaults (master 0.25, stems unmuted at 1.0) stay in place
-  /// for a first-ever launch, when there's nothing saved yet.
+  /// Restores stem volumes, mutes and repeat across app restarts.
+  /// The engine defaults (stems unmuted at 1.0) stay in place for a
+  /// first-ever launch, when there's nothing saved yet.
   void _restorePlaybackState(SharedPreferences prefs) {
-    final master = prefs.getDouble('master_volume');
-    if (master != null) _engine.setMasterVolume(master);
-
     final volumesRaw = prefs.getString('stem_volumes');
     if (volumesRaw != null) {
       try {
@@ -382,7 +379,6 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> _persistPlaybackState() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('master_volume', _engine.masterVolume);
     await prefs.setString('stem_volumes', jsonEncode(_engine.stemVolumes));
     await prefs.setString('stem_mutes', jsonEncode(_engine.muteStates));
     await prefs.setBool('repeat_mode', _repeatMode);
@@ -756,12 +752,6 @@ class PlayerProvider extends ChangeNotifier {
   Future<void> _persistJsonMap(String key, Map<String, Object> map) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, jsonEncode(map));
-  }
-
-  void setMasterVolume(double v) {
-    _engine.setMasterVolume(v);
-    notifyListeners();
-    _schedulePersistPlaybackState();
   }
 
   void setStemVolume(String name, double v) {

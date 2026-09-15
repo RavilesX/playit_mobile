@@ -15,7 +15,6 @@ class AudioEngine {
 
   final Map<String, double> _stemVolumes = {for (final n in stemNames) n: 1.0};
   final Map<String, bool> _muteStates = {for (final n in stemNames) n: false};
-  double _masterVolume = 0.25;
 
   /// Fade duration for auto-unmute transitions (AUTO_UNMUTE_FADE_S in
   /// desktop's audio_player.py).
@@ -55,7 +54,6 @@ class AudioEngine {
 
   PlaybackStatus get status => _status;
   Duration get duration => _duration;
-  double get masterVolume => _masterVolume;
   Map<String, double> get stemVolumes => Map.unmodifiable(_stemVolumes);
   Map<String, bool> get muteStates => Map.unmodifiable(_muteStates);
 
@@ -107,7 +105,7 @@ class AudioEngine {
     for (final name in stemNames) {
       final muted = _muteStates[name] ?? false;
       final stemVol = _stemVolumes[name] ?? 1.0;
-      final vol = muted ? 0.0 : stemVol * _masterVolume;
+      final vol = muted ? 0.0 : stemVol;
       _handles[name] = await _soloud.play(
         _sources[name]!,
         volume: vol,
@@ -191,11 +189,6 @@ class AudioEngine {
     }
   }
 
-  void setMasterVolume(double volume) {
-    _masterVolume = volume.clamp(0.0, 1.0);
-    _applyVolumes();
-  }
-
   void setStemVolume(String name, double volume) {
     _stemVolumes[name] = volume.clamp(0.0, 1.0);
     _applyVolumes();
@@ -234,7 +227,7 @@ class AudioEngine {
     _autoUnmuteActive = active;
     final h = _handles['vocals'];
     if (h == null || !_soloud.getIsValidVoiceHandle(h)) return;
-    final base = (_stemVolumes['vocals'] ?? 1.0) * _masterVolume;
+    final base = _stemVolumes['vocals'] ?? 1.0;
     _soloud.fadeVolume(h, active ? base : 0.0, autoUnmuteFade);
   }
 
@@ -243,9 +236,8 @@ class AudioEngine {
       final h = _handles[name];
       if (h == null || !_soloud.getIsValidVoiceHandle(h)) continue;
       final muted = _muteStates[name] ?? false;
-      final stemVol = _stemVolumes[name] ?? 1.0;
-      final base = stemVol * _masterVolume;
-      // While auto-unmute is actively fading vocals in, apply volume/master
+      final base = _stemVolumes[name] ?? 1.0;
+      // While auto-unmute is actively fading vocals in, apply volume
       // slider changes immediately instead of fighting the in-flight fade.
       if (name == 'vocals' && muted && _autoUnmuteActive) {
         _soloud.setVolume(h, base);

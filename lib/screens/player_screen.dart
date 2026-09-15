@@ -15,7 +15,6 @@ import '../widgets/stem_mixer_sheet.dart';
 import '../services/update_checker.dart';
 import '../widgets/transport_controls.dart';
 import '../widgets/update_dialogs.dart';
-import '../widgets/volume_dial.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -367,32 +366,19 @@ class _TransportRow extends StatelessWidget {
         // overflowing — showSeek above keeps this near 1.0 on most phones.
         return FittedBox(
           fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TransportControls(
-                status: provider.status,
-                hasPlaylist: provider.playlist.isNotEmpty,
-                hasCurrentSong: provider.currentIndex >= 0,
-                repeatMode: provider.repeatMode,
-                onPrev: provider.playPrevious,
-                onPlayPause: provider.togglePlayPause,
-                onNext: provider.playNext,
-                onStop: provider.stop,
-                onRepeatToggle: provider.toggleRepeat,
-                onSeekBack: () =>
-                    provider.seekBy(const Duration(seconds: -5)),
-                onSeekForward: () =>
-                    provider.seekBy(const Duration(seconds: 5)),
-                showSeek: showSeek,
-              ),
-              const SizedBox(width: 16),
-              VolumeDial(
-                value: provider.engine.masterVolume,
-                onChanged: provider.setMasterVolume,
-                size: 80,
-              ),
-            ],
+          child: TransportControls(
+            status: provider.status,
+            hasPlaylist: provider.playlist.isNotEmpty,
+            hasCurrentSong: provider.currentIndex >= 0,
+            repeatMode: provider.repeatMode,
+            onPrev: provider.playPrevious,
+            onPlayPause: provider.togglePlayPause,
+            onNext: provider.playNext,
+            onStop: provider.stop,
+            onRepeatToggle: provider.toggleRepeat,
+            onSeekBack: () => provider.seekBy(const Duration(seconds: -5)),
+            onSeekForward: () => provider.seekBy(const Duration(seconds: 5)),
+            showSeek: showSeek,
           ),
         );
       },
