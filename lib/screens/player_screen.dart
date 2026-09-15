@@ -368,8 +368,8 @@ class _TransportRow extends StatelessWidget {
           fit: BoxFit.scaleDown,
           child: TransportControls(
             status: provider.status,
-            hasPlaylist: provider.playlist.isNotEmpty,
-            hasCurrentSong: provider.currentIndex >= 0,
+            hasPlaylist: provider.playlist.isNotEmpty && !provider.remoteLocked,
+            hasCurrentSong: provider.currentIndex >= 0 && !provider.remoteLocked,
             repeatMode: provider.repeatMode,
             onPrev: provider.playPrevious,
             onPlayPause: provider.togglePlayPause,

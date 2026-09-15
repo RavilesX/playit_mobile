@@ -112,6 +112,12 @@ class PlayerProvider extends ChangeNotifier {
 
   Timer? _playbackStateDebounce;
 
+  /// True while a [RemoteProvider] elsewhere has taken control of a desktop
+  /// PC — two audio sources at once is the worst outcome for someone
+  /// rehearsing, so local playback is stopped and locked out for the
+  /// duration of that remote session.
+  bool _remoteLocked = false;
+
   List<Song> get playlist => _playlist;
   int get currentIndex => _currentIndex;
   PlaybackStatus get status => _status;
@@ -131,6 +137,20 @@ class PlayerProvider extends ChangeNotifier {
   Duration get duration => _duration;
   AudioEngine get engine => _engine;
   bool get repeatMode => _repeatMode;
+  bool get remoteLocked => _remoteLocked;
+
+  /// Called by [RemoteScreen] as its [RemoteProvider] connects/disconnects.
+  /// Locking stops whatever the phone was playing; unlocking just lets local
+  /// playback be started again.
+  void setRemoteLocked(bool locked) {
+    if (_remoteLocked == locked) return;
+    _remoteLocked = locked;
+    if (locked) {
+      unawaited(stop());
+    } else {
+      notifyListeners();
+    }
+  }
   bool get autoUnmuteEnabled => _autoUnmuteEnabled;
   double get lyricsScale => _lyricsScale;
   String get sortModeLabel =>
@@ -521,6 +541,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> playSong(int index) async {
+    if (_remoteLocked) return;
     final lib = _library;
     if (lib == null || index < 0 || index >= _playlist.length) return;
 
@@ -634,6 +655,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> togglePlayPause() async {
+    if (_remoteLocked) return;
     if (_status == PlaybackStatus.playing) {
       await _engine.pause();
       _status = PlaybackStatus.paused;
@@ -660,7 +682,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> playNext() async {
-    if (_playlist.isEmpty) return;
+    if (_remoteLocked || _playlist.isEmpty) return;
     if (_repeatMode && _currentIndex >= 0) {
       await _replayCurrent();
       return;

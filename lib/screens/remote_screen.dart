@@ -7,7 +7,6 @@ import '../constants/app_colors.dart';
 import '../models/remote_state.dart';
 import '../providers/player_provider.dart';
 import '../providers/remote_provider.dart';
-import '../services/audio_engine.dart';
 import '../utils/duration_format.dart';
 import '../widgets/remote_mixer.dart';
 import '../widgets/remote_pair_form.dart';
@@ -35,12 +34,21 @@ class _RemoteScreenState extends State<RemoteScreen>
   final RemoteProvider _remote = RemoteProvider();
   PairingInfo? _saved;
   bool _loadingSaved = true;
+  bool _wasConnected = false;
+  late PlayerProvider _player;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _remote.addListener(_syncLocalPlaybackLock);
     _restoreSession();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _player = context.read<PlayerProvider>();
   }
 
   Future<void> _restoreSession() async {
@@ -50,23 +58,26 @@ class _RemoteScreenState extends State<RemoteScreen>
       _saved = saved;
       _loadingSaved = false;
     });
-    if (saved != null && await _remote.connect(saved)) _onConnected();
+    if (saved != null) await _remote.connect(saved);
   }
 
   /// Two audio sources at once is the worst possible outcome for someone
-  /// rehearsing, so taking control of the PC stops whatever the phone was
-  /// playing.
-  void _onConnected() {
-    if (!mounted) return;
-    final player = context.read<PlayerProvider>();
-    if (player.status == PlaybackStatus.stopped) return;
-    player.stop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Se detuvo la reproducción local'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  /// rehearsing, so taking control of the PC locks out local playback for
+  /// as long as the remote session lasts; disconnecting (on purpose, on
+  /// error, or by leaving the screen) hands it back.
+  void _syncLocalPlaybackLock() {
+    final connected = _remote.isConnected;
+    if (connected == _wasConnected) return;
+    _wasConnected = connected;
+    _player.setRemoteLocked(connected);
+    if (connected && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reproducción local desactivada mientras controlás la PC'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -83,6 +94,8 @@ class _RemoteScreenState extends State<RemoteScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _remote.removeListener(_syncLocalPlaybackLock);
+    if (_wasConnected) _player.setRemoteLocked(false);
     _remote.dispose();
     super.dispose();
   }
@@ -193,9 +206,7 @@ class _RemoteScreenState extends State<RemoteScreen>
             busy: remote.isBusy,
             onScan: () => QrScanScreen.open(context),
             onDiscover: remote.discover,
-            onSubmit: (info) async {
-              if (await remote.connect(info)) _onConnected();
-            },
+            onSubmit: (info) => remote.connect(info),
           ),
         ),
       ],
